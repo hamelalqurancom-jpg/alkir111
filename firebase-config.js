@@ -1,13 +1,13 @@
 // firebase-config.js
 // إعدادات Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyB2a0owQsMRh705Z9icWIBF2nFJ4v_AW7E",
-  authDomain: "alkair-1a7a8.firebaseapp.com",
-  projectId: "alkair-1a7a8",
-  storageBucket: "alkair-1a7a8.firebasestorage.app",
-  messagingSenderId: "557517888203",
-  appId: "1:557517888203:web:d31d86ab85b7694e85d94e",
-  measurementId: "G-C3PL5FH6G3"
+  apiKey: "AIzaSyCFjTjcoC4XNDBfa7zfS38qISVOg3Zy7Ls",
+  authDomain: "kkkkkkk-3185c.firebaseapp.com",
+  projectId: "kkkkkkk-3185c",
+  storageBucket: "kkkkkkk-3185c.firebasestorage.app",
+  messagingSenderId: "483380085587",
+  appId: "1:483380085587:web:f8542973f8b083d73d17a6",
+  measurementId: "G-SERTKBRZSY"
 };
 
 // --- إعدادات Cloudinary لرفع الصور ---
@@ -22,7 +22,8 @@ window.cloudinaryConfig = cloudinaryConfig;
  * --- قواعد حماية Firestore المقترحة ---
  * (يجب ضبطها في لوحة تحكم Firebase)
  * 
- *  * service cloud.firestore {
+ * rules_version = '2';
+ * service cloud.firestore {
  *   match /databases/{database}/documents {
  *     // قاعدة المزامنة المشتركة (بدون تسجيل دخول بالبريد)
  *     match /charities/shared_app_data/{document=**} {
@@ -41,7 +42,7 @@ window.cloudinaryConfig = cloudinaryConfig;
  * 2. أضف النطاقات التالية:
  *    - localhost (للتجربة المحلية)
  *    - m-lapan.github.io (أو رابط GitHub الخاص بك)
- *    - al-khair-66.web.app
+ *    - kkkkkkk-3185c.web.app
  */
 
 // تهيئة Firebase

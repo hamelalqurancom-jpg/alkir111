@@ -219,14 +219,10 @@ window.logoutApp = () => {
 };
 
 window.initFirebaseSync = async () => {
-    if (!window.db) return;
-    
-    // If not logged in, try anonymous login to enable Firebase
-    if (!currentUser && window.auth) {
-        try { await window.auth.signInAnonymously(); } catch(e) { console.error("Anon Login Fail", e); }
+    if (!window.db || !currentUser) {
+        console.warn("Sync skipped: No DB or User session");
+        return;
     }
-    if (!currentUser) return;
-
     const syncStatusUI = document.getElementById('sync-status');
     if (syncStatusUI) syncStatusUI.innerText = 'جاري تحميل البيانات من السحابة...';
 
@@ -267,6 +263,8 @@ window.initFirebaseSync = async () => {
     } catch (err) {
         console.error("Firebase Initialization Error:", err);
         if (syncStatusUI) syncStatusUI.innerText = 'تعذر الوصول للسحابة';
+        // Show visible error to user
+        alert("خطأ Firebase: " + err.message + "\nتأكد من تفعيل Anonymous Auth وتعديل الـ Rules.");
     }
 
     // --- REAL-TIME LISTENER FOR SHARED DATA ---
@@ -283,7 +281,7 @@ window.initFirebaseSync = async () => {
                 }
             }
         });
-    } catch(e) { console.error("Snapshot error", e); }
+    } catch (e) { console.error("Snapshot error", e); }
 };
 
 window.syncToFirestoreBackground = async () => {
@@ -412,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.renderPage === 'function') {
             window.renderPage('dashboard');
         }
-        
+
         // --- INITIAL DATA LOAD ---
         const localData = localStorage.getItem('alkhair_app_data');
         if (localData) {
@@ -423,6 +421,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- AUTH STATE MONITOR ---
         if (window.auth) {
+            // Ensure we are at least logged in anonymously for sync
+            if (!window.auth.currentUser) {
+                window.auth.signInAnonymously().catch(err => {
+                    console.error("Auto-Auth Fail:", err);
+                    alert("خطأ في الاتصال بالسحابة: " + err.message);
+                });
+            }
+
             window.auth.onAuthStateChanged(async (user) => {
                 console.log("Auth State Changed. User:", user ? user.uid : "None");
                 if (user) {
@@ -456,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     currentUser = null;
                     charityProfile = {};
-                    
+
                     const authScreen = document.getElementById('auth-screen');
                     const mainApp = document.getElementById('main-app');
                     const profileDiv = document.querySelector('.user-profile');
@@ -3272,7 +3278,7 @@ fileInput.addEventListener('change', async (e) => {
 
     // --- CLOUDINARY UPLOAD SYNTAX ---
     // (As per best practices: Offloading images to reduce Firestore document size)
-    
+
     if (!window.cloudinaryConfig || window.cloudinaryConfig.cloudName === "YOUR_CLOUD_NAME") {
         console.warn("Cloudinary not configured. Falling back to Local Preview.");
         const reader = new FileReader();
