@@ -219,19 +219,19 @@ window.logoutApp = () => {
 };
 
 window.initFirebaseSync = async () => {
-    if (!window.db || !currentUser) {
-        console.warn("Sync skipped: No DB or User session");
+    if (!window.db) {
+        console.warn("Sync skipped: No DB");
         return;
     }
     const syncStatusUI = document.getElementById('sync-status');
-    if (syncStatusUI) syncStatusUI.innerText = 'جاري تحميل البيانات من السحابة...';
+    if (syncStatusUI) syncStatusUI.innerText = 'جاري مزامنة البيانات السحابية...';
 
     const tempAppData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [] };
 
     try {
-        // Use a shared document for anonymous users to allow multi-device sync without login
-        const docPath = (currentUser.isAnonymous) ? 'shared_app_data' : currentUser.uid;
-        const charityRef = window.db.collection('charities').doc(docPath);
+        // --- PUBLIC SHARED SYNC (NO ACCOUNTS) ---
+        // Using a fixed global document for all users
+        const charityRef = window.db.collection('charities').doc('global_shared_data');
 
         for (const col of Object.keys(tempAppData)) {
             const snapshot = await charityRef.collection(col).get();
@@ -264,18 +264,14 @@ window.initFirebaseSync = async () => {
         console.error("Firebase Initialization Error:", err);
         if (syncStatusUI) syncStatusUI.innerText = 'تعذر الوصول للسحابة';
         // Show visible error to user
-        alert("خطأ Firebase: " + err.message + "\nتأكد من تفعيل Anonymous Auth وتعديل الـ Rules.");
+        alert("خطأ Firebase: " + err.message);
     }
 
-    // --- REAL-TIME LISTENER FOR SHARED DATA ---
-    // (Ensures that if phone A adds data, phone B sees it immediately)
+    // --- REAL-TIME LISTENER (NO AUTH) ---
     try {
-        const docPath = (currentUser.isAnonymous) ? 'shared_app_data' : currentUser.uid;
-        window.db.collection('charities').doc(docPath).onSnapshot((doc) => {
+        window.db.collection('charities').doc('global_shared_data').onSnapshot((doc) => {
             if (doc.exists) {
                 console.log("Remote update received via Snapshot");
-                // For Shared Mode, we'll refresh the page state from the cloud
-                // But only if we're not in the middle of a local sync to avoid conflicts
                 if (document.getElementById('sync-status').innerText !== 'جاري الحفظ في السحابة...') {
                     window.initFirebaseSync();
                 }
@@ -294,8 +290,7 @@ window.syncToFirestoreBackground = async () => {
 
     try {
         const promises = [];
-        const docPath = (currentUser.isAnonymous) ? 'shared_app_data' : currentUser.uid;
-        const charityRef = window.db.collection('charities').doc(docPath);
+        const charityRef = window.db.collection('charities').doc('global_shared_data');
 
         for (const col of Object.keys(lastSyncedData)) {
             if (!appData[col]) continue;
@@ -419,70 +414,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) { console.error("Local load fail", e); }
         }
 
-        // --- AUTH STATE MONITOR ---
-        if (window.auth) {
-            // Ensure we are at least logged in anonymously for sync
-            if (!window.auth.currentUser) {
-                window.auth.signInAnonymously().catch(err => {
-                    console.error("Auto-Auth Fail:", err);
-                    alert("خطأ في الاتصال بالسحابة: " + err.message);
-                });
-            }
-
-            window.auth.onAuthStateChanged(async (user) => {
-                console.log("Auth State Changed. User:", user ? user.uid : "None");
-                if (user) {
-                    currentUser = user;
-                    const authScreen = document.getElementById('auth-screen');
-                    const mainApp = document.getElementById('main-app');
-                    if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
-                    if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
-                    window.hideSplash();
-
-                    try {
-                        const doc = await window.db.collection('charities').doc(user.uid).get();
-                        if (doc.exists) {
-                            charityProfile = doc.data();
-                            const titleSpan = document.querySelector('.sidebar-header span');
-                            if (titleSpan) titleSpan.innerText = charityProfile.charityName;
-
-                            const profileDiv = document.querySelector('.user-profile');
-                            if (profileDiv) {
-                                profileDiv.innerHTML = `
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <span style="font-size:0.8rem; font-weight:bold; color: var(--text-main);">${charityProfile.managerName}</span>
-                                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(charityProfile.managerName)}&background=6366f1&color=fff" style="width: 35px; height: 35px; border-radius:50%; border: 2px solid white;">
-                                    <i class="fas fa-sign-out-alt" style="color:#e11d48; cursor:pointer; font-size:1.2rem; margin-right:5px;" onclick="window.logoutApp()" title="تسجيل الخروج"></i>
-                                </div>
-                            `;
-                            }
-                        }
-                    } catch (e) { console.error("Error fetching profile", e); }
-                    await window.initFirebaseSync();
-                } else {
-                    currentUser = null;
-                    charityProfile = {};
-
-                    const authScreen = document.getElementById('auth-screen');
-                    const mainApp = document.getElementById('main-app');
-                    const profileDiv = document.querySelector('.user-profile');
-                    if (profileDiv) {
-                        const statusText = user.isAnonymous ? "وضع المزامنة المشتركة" : "وضع الزائر (محلي)";
-                        profileDiv.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="font-size:0.8rem; font-weight:bold; color: var(--text-muted);">${statusText}</span>
-                        </div>
-                    `;
-                    }
-                    if (user.isAnonymous) {
-                        await window.initFirebaseSync();
-                    }
-                    if (typeof window.renderPage === 'function') {
-                        window.renderPage('dashboard');
-                    }
-                    window.updateStatusBar();
-                }
-            });
+        // Start Public Sync Immediately (No Auth needed)
+        if (window.db) {
+            window.initFirebaseSync();
         }
 
         // --- UI EVENT LISTENERS ---
