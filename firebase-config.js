@@ -22,9 +22,13 @@ window.cloudinaryConfig = cloudinaryConfig;
  * --- قواعد حماية Firestore المقترحة ---
  * (يجب ضبطها في لوحة تحكم Firebase)
  * 
- * rules_version = '2';
- * service cloud.firestore {
+ *  * service cloud.firestore {
  *   match /databases/{database}/documents {
+ *     // قاعدة المزامنة المشتركة (بدون تسجيل دخول بالبريد)
+ *     match /charities/shared_app_data/{document=**} {
+ *       allow read, write: if request.auth != null;
+ *     }
+ *     // قاعدة الحسابات المسجلة
  *     match /charities/{charityId}/{document=**} {
  *       allow read, write: if request.auth != null && request.auth.uid == charityId;
  *     }
