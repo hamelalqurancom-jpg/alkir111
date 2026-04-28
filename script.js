@@ -379,8 +379,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const sidebar = document.getElementById('sidebar');
         const linkFolderBtn = document.getElementById('link-folder-btn');
 
-        // Initial state - Don't force bypass!
-        // Let Firebase onAuthStateChanged handle it or the splash buttons.
+        // Force bypass immediately
+        if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
+        if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
+        window.hideSplash();
+        if (typeof window.renderPage === 'function') {
+            window.renderPage('dashboard');
+        }
         
         // --- INITIAL DATA LOAD ---
         const localData = localStorage.getItem('alkhair_app_data');
@@ -396,6 +401,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Auth State Changed. User:", user ? user.uid : "None");
                 if (user) {
                     currentUser = user;
+                    const authScreen = document.getElementById('auth-screen');
+                    const mainApp = document.getElementById('main-app');
                     if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
                     if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
                     window.hideSplash();
@@ -424,6 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentUser = null;
                     charityProfile = {};
                     
+                    const authScreen = document.getElementById('auth-screen');
+                    const mainApp = document.getElementById('main-app');
                     // Allow direct access even if not logged in
                     if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
                     if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
