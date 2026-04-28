@@ -13,8 +13,8 @@ const firebaseConfig = {
 // --- إعدادات Cloudinary لرفع الصور ---
 // (يرجى استبدال هذه القيم ببيانات حسابك)
 const cloudinaryConfig = {
-    cloudName: "dwrhl6gjf",
-    uploadPreset: "asr-kareem"
+  cloudName: "dwrhl6gjf",
+  uploadPreset: "asr-kareem"
 };
 window.cloudinaryConfig = cloudinaryConfig;
 

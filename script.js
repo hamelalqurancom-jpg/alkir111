@@ -396,8 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Auth State Changed. User:", user ? user.uid : "None");
                 if (user) {
                     currentUser = user;
-                    if (authScreen) authScreen.style.display = 'none';
-                    if (mainApp) mainApp.style.display = 'flex';
+                    if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
+                    if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
                     window.hideSplash();
 
                     try {
@@ -423,17 +423,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     currentUser = null;
                     charityProfile = {};
-                    if (authScreen) authScreen.style.display = 'flex';
-                    if (mainApp) mainApp.style.display = 'none';
                     
+                    // Allow direct access even if not logged in
+                    if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
+                    if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
+                    window.hideSplash();
+
                     const profileDiv = document.querySelector('.user-profile');
                     if (profileDiv) {
                         profileDiv.innerHTML = `
-                            <button onclick="window.showAuthPage('login')" style="background: #3b82f6; color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: 700; cursor: pointer;">
-                                <i class="fas fa-sign-in-alt"></i> تسجيل دخول
-                            </button>
-                        `;
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:0.8rem; font-weight:bold; color: var(--text-muted);">وضع الزائر (غير متصل بالسحابة)</span>
+                        </div>
+                    `;
                     }
+                    if (typeof window.renderPage === 'function') {
+                        window.renderPage('dashboard');
+                    }
+                    window.updateStatusBar();
                 }
             });
         }
