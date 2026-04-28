@@ -36,8 +36,12 @@ window.cloudinaryConfig = cloudinaryConfig;
  * }
  * 
  * --- ملاحظة حول النطاقات المسموحة (Authorized Domains) ---
- * يرجى التأكد من إضافة رابط موقعك (مثل al-khair-66.web.app) في إعدادات 
- * Firebase Console -> Authentication -> Settings -> Authorized Domains
+ * يرجى التأكد من إضافة رابط موقعك في إعدادات Firebase Console:
+ * 1. اذهب إلى Authentication -> Settings -> Authorized Domains
+ * 2. أضف النطاقات التالية:
+ *    - localhost (للتجربة المحلية)
+ *    - m-lapan.github.io (أو رابط GitHub الخاص بك)
+ *    - al-khair-66.web.app
  */
 
 // تهيئة Firebase

@@ -268,6 +268,22 @@ window.initFirebaseSync = async () => {
         console.error("Firebase Initialization Error:", err);
         if (syncStatusUI) syncStatusUI.innerText = 'تعذر الوصول للسحابة';
     }
+
+    // --- REAL-TIME LISTENER FOR SHARED DATA ---
+    // (Ensures that if phone A adds data, phone B sees it immediately)
+    try {
+        const docPath = (currentUser.isAnonymous) ? 'shared_app_data' : currentUser.uid;
+        window.db.collection('charities').doc(docPath).onSnapshot((doc) => {
+            if (doc.exists) {
+                console.log("Remote update received via Snapshot");
+                // For Shared Mode, we'll refresh the page state from the cloud
+                // But only if we're not in the middle of a local sync to avoid conflicts
+                if (document.getElementById('sync-status').innerText !== 'جاري الحفظ في السحابة...') {
+                    window.initFirebaseSync();
+                }
+            }
+        });
+    } catch(e) { console.error("Snapshot error", e); }
 };
 
 window.syncToFirestoreBackground = async () => {
