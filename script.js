@@ -20,106 +20,186 @@ function showAuthMsg(msg, isError) {
     }
 }
 
-// --- GLOBAL AUTH HANDLERS ---
-window.handleRegister = async (e) => {
-    if (e) e.preventDefault();
-    console.log("handleRegister started");
+// --- CHARITY BRANDING & AUTH ---
+window.updateAppBranding = (name) => {
+    if (!name) return;
+    window.charityName = name;
 
-    const btn = document.getElementById('register-btn');
-    const originalText = btn ? btn.innerHTML : '';
+    // Update UI elements
+    const sidebarName = document.getElementById('sidebar-charity-name');
+    const headerName = document.getElementById('header-charity-name');
+    const pageTitle = document.querySelector('title');
 
-    const charityName = document.getElementById('reg-charity-name') ? document.getElementById('reg-charity-name').value.trim() : '';
-    const managerName = document.getElementById('reg-manager-name') ? document.getElementById('reg-manager-name').value.trim() : '';
-    const phone = document.getElementById('reg-phone') ? document.getElementById('reg-phone').value.trim() : '';
-    const password = document.getElementById('reg-password') ? document.getElementById('reg-password').value : '';
+    if (sidebarName) sidebarName.innerText = name;
+    if (headerName) headerName.innerText = name;
+    if (pageTitle) pageTitle.innerText = `${name} | لوحة التحكم`;
 
-    if (!charityName || !managerName || !phone || !password) {
-        showAuthMsg('يرجى تعبئة جميع الحقول', true); return;
-    }
-    if (phone.length < 10) {
-        showAuthMsg('رقم الهاتف غير صحيح', true); return;
-    }
-    if (password.length < 6) {
-        showAuthMsg('كلمة المرور يجب أن تكون 6 أحرف على الأقل', true); return;
-    }
+    console.log(`Branding updated: ${name}`);
+};
 
-    if (!window.auth || !window.db) {
-        showAuthMsg('خطأ: يرجى التأكد من الاتصال بالإنترنت', true);
+window.showRegister = () => {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'block';
+    document.getElementById('auth-title').innerText = 'إنشاء حساب جمعية جديد';
+};
+
+window.showLogin = () => {
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('auth-title').innerText = 'تسجيل الدخول';
+};
+
+window.handleRegister = async () => {
+    const charityName = document.getElementById('reg-charity-name').value.trim();
+    const ownerName = document.getElementById('reg-owner-name').value.trim();
+    const phone = document.getElementById('reg-phone').value.trim();
+    const password = document.getElementById('reg-password').value.trim();
+
+    if (!charityName || !ownerName || !phone || !password) {
+        showAuthMsg('يرجى تعبئة جميع الحقول', true);
         return;
     }
+
+    // Phone validation (11 digits, numeric)
+    if (!/^\d{11}$/.test(phone)) {
+        showAuthMsg('رقم الهاتف يجب أن يكون 11 رقماً وبالإنجليزية', true);
+        return;
+    }
+
+    // Password validation (min 6 characters)
+    if (password.length < 6) {
+        showAuthMsg('كلمة المرور يجب أن تكون 6 أرقام/أحرف على الأقل', true);
+        return;
+    }
+
+    const btn = document.getElementById('register-btn');
+    const originalText = btn.innerHTML;
 
     try {
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنشاء...';
         }
 
-        const email = phone + '@alkhair.app';
-        console.log('Firebase Registration...');
+        if (!window.auth || !window.db) {
+            throw new Error('فشل الاتصال بخدمات السحابة');
+        }
+
+        // Use phone as email proxy for Firebase Auth
+        const email = `${phone}@charity.app`;
         const userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
 
+        // Save profile to Firestore
         await window.db.collection('charities').doc(user.uid).set({
             charityName,
-            managerName,
+            ownerName,
             phone,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        showAuthMsg('تم إنشاء الحساب بنجاح! جاري الدخول...', false);
-        // onAuthStateChanged will handle the transition
+        // Initialize empty data for this user
+        await window.db.collection('charities').doc(user.uid).collection('data').doc('app_state').set({
+            cases: [],
+            donations: [],
+            expenses: [],
+            volunteers: [],
+            affidavits: [],
+            inventory: []
+        });
+
+        localStorage.setItem('logged_charity_name', charityName);
+        localStorage.setItem('logged_charity_id', user.uid);
+
+        showAuthMsg('تم إنشاء الحساب بنجاح!', false);
+
+        setTimeout(() => {
+            window.updateAppBranding(charityName);
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            window.renderPage('dashboard');
+            // Start specific sync for this user
+            window.initCharitySync(user.uid);
+        }, 1500);
 
     } catch (error) {
-        console.error('Reg Error:', error);
+        console.error('Registration error:', error);
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalText;
         }
         if (error.code === 'auth/email-already-in-use') {
-            showAuthMsg('رقم الهاتف مسجل بالفعل', true);
+            showAuthMsg('رقم الهاتف هذا مسجل بالفعل', true);
         } else {
             showAuthMsg('حدث خطأ: ' + error.message, true);
         }
     }
 };
 
-window.handleLogin = async (e) => {
-    if (e) e.preventDefault();
-    console.log('handleLogin started');
-
-    const btn = document.getElementById('login-btn');
-    const originalText = btn ? btn.innerHTML : '';
-
-    const phone = document.getElementById('login-phone') ? document.getElementById('login-phone').value.trim() : '';
-    const password = document.getElementById('login-password') ? document.getElementById('login-password').value : '';
+window.handleLogin = async () => {
+    const phone = document.getElementById('login-phone').value.trim();
+    const password = document.getElementById('login-password').value.trim();
 
     if (!phone || !password) {
-        showAuthMsg('يرجى إدخال رقم الهاتف وكلمة المرور', true); return;
-    }
-
-    if (!window.auth) {
-        showAuthMsg('خطأ في تحميل خدمات Firebase - تحقق من الإنترنت', true); return;
+        showAuthMsg('يرجى إدخال الهاتف وكلمة المرور', true);
+        return;
     }
 
     try {
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الدخول...';
-        }
+        const email = `${phone}@charity.app`;
+        const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
 
-        const email = phone + '@alkhair.app';
-        await window.auth.signInWithEmailAndPassword(email, password);
-        console.log('Login success - waiting for auth state change');
-        // onAuthStateChanged will handle the UI transition
+        // Fetch profile
+        const doc = await window.db.collection('charities').doc(user.uid).get();
+        if (doc.exists) {
+            const data = doc.data();
+            localStorage.setItem('logged_charity_name', data.charityName);
+            localStorage.setItem('logged_charity_id', user.uid);
+            window.updateAppBranding(data.charityName);
+
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            window.renderPage('dashboard');
+            window.initCharitySync(user.uid);
+        } else {
+            showAuthMsg('لم يتم العثور على بيانات الجمعية', true);
+        }
 
     } catch (error) {
-        console.error('Login Error:', error);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-        showAuthMsg('رقم الهاتف أو كلمة المرور غير صحيحة', true);
+        console.error('Login error:', error);
+        showAuthMsg('خطأ في الدخول: الهاتف أو كلمة المرور غير صحيحة', true);
     }
+};
+
+window.initCharitySync = (uid) => {
+    if (!window.db) return;
+
+    // Set up real-time listener for this specific charity's data
+    window.db.collection('charities').doc(uid).collection('data').doc('app_state')
+        .onSnapshot((doc) => {
+            if (doc.exists) {
+                appData = doc.data();
+                window.updateStatusBar();
+                localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
+
+                // If on a page that needs data, re-render
+                const activeItem = document.querySelector('.sidebar-nav li.active');
+                if (activeItem) {
+                    const page = activeItem.getAttribute('data-page');
+                    window.renderPage(page);
+                }
+            }
+        }, (error) => {
+            console.error("Sync error:", error);
+        });
+};
+
+window.logoutApp = () => {
+    localStorage.removeItem('logged_charity_name');
+    localStorage.removeItem('logged_charity_id');
+    localStorage.removeItem('alkhair_app_data');
+    location.reload();
 };
 
 // --- GLOBAL STATE ---
@@ -165,8 +245,12 @@ window.updateStatusBar = () => {
 window.saveData = (writeToFile = true) => {
     window.updateStatusBar();
     localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
-    if (typeof window.syncToFirestoreBackground === 'function') {
-        window.syncToFirestoreBackground();
+
+    // Sync to user-specific Firestore location
+    const uid = localStorage.getItem('logged_charity_id');
+    if (uid && window.db) {
+        window.db.collection('charities').doc(uid).collection('data').doc('app_state').set(appData)
+            .catch(err => console.error("Cloud sync fail", err));
     }
 };
 
@@ -222,15 +306,17 @@ window.showCaseQRCode = (caseId) => {
     const qrContainer = document.getElementById('qrcode-container');
     const qrModal = document.getElementById('qr-modal');
     const qrLinkText = document.getElementById('qr-link-copy');
-    
+
     if (!qrContainer || !qrModal) return;
 
     // Clear previous QR
     qrContainer.innerHTML = '';
-    
-    // Construct the URL (works for both local and hosted)
+
+    // Construct the URL with charity ID for sandboxing
     const currentUrl = new URL(window.location.href);
+    const charityId = localStorage.getItem('logged_charity_id');
     currentUrl.searchParams.set('caseId', caseId);
+    if (charityId) currentUrl.searchParams.set('charityId', charityId);
     const targetUrl = currentUrl.toString();
 
     // Generate QR
@@ -250,25 +336,34 @@ window.showCaseQRCode = (caseId) => {
 window.renderPublicCase = (caseId) => {
     // Wait for appData if coming from direct link and Firebase is used
     // For this simple implementation, we assume appData is loaded or we fetch it
+    const urlParams = new URLSearchParams(window.location.search);
+    const charityIdParam = urlParams.get('charityId');
+
     const findCase = () => {
         const c = appData.cases.find(x => String(x.id) === String(caseId));
         if (!c) {
-            // If not in local appData, we might need to wait for Firebase sync
-            if (window.db) {
+            // If not in local appData, fetch from the specific charity's sandbox
+            if (window.db && charityIdParam) {
                 document.getElementById('public-case-content').innerHTML = '<div style="text-align:center; padding:50px;"><i class="fas fa-spinner fa-spin fa-3x"></i><p>جاري جلب بيانات الحالة من السحابة...</p></div>';
                 document.getElementById('public-case-view').style.display = 'block';
-                
-                window.db.collection('charities').doc('global_shared_data').collection('cases').doc(String(caseId)).get().then(doc => {
+
+                window.db.collection('charities').doc(charityIdParam).collection('data').doc('app_state').get().then(doc => {
                     if (doc.exists) {
-                        render(doc.data());
+                        const sandboxedData = doc.data();
+                        const found = sandboxedData.cases.find(x => String(x.id) === String(caseId));
+                        if (found) {
+                            render(found);
+                        } else {
+                            document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">عذراً، هذه الحالة غير موجودة.</p>';
+                        }
                     } else {
-                        document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">عذراً، هذه الحالة غير موجودة أو تم حذفها.</p>';
+                        document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">عذراً، بيانات هذه الجمعية غير متاحة.</p>';
                     }
                 }).catch(err => {
                     document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">خطأ في الاتصال بالسحابة.</p>';
                 });
             } else {
-                 document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">تعذر تحميل البيانات.</p>';
+                document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">تعذر تحميل البيانات. الرابط قديم أو غير مكتمل.</p>';
             }
             return;
         }
@@ -278,7 +373,7 @@ window.renderPublicCase = (caseId) => {
     const render = (c) => {
         document.getElementById('public-case-view').style.display = 'block';
         const container = document.getElementById('public-case-content');
-        
+
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: 1fr 250px; gap: 30px;">
                 <div class="case-info-public">
@@ -344,180 +439,7 @@ window.renderPublicCase = (caseId) => {
     }
 };
 
-let _snapshotListenerAttached = false; // منع تسجيل المستمع أكثر من مرة
-
-window.initFirebaseSync = async () => {
-    if (!window.db) {
-        console.warn("Sync skipped: No DB");
-        return;
-    }
-    const syncStatusUI = document.getElementById('sync-status');
-    const syncIndUI = document.getElementById('sync-indicator');
-
-    if (syncStatusUI) {
-        syncStatusUI.innerText = '🔄 جاري مزامنة البيانات...';
-        syncStatusUI.style.color = '#f59e0b';
-    }
-    if (syncIndUI) syncIndUI.style.background = '#f59e0b';
-
-    const tempAppData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [] };
-
-    try {
-        const charityRef = window.db.collection('charities').doc('global_shared_data');
-
-        for (const col of Object.keys(tempAppData)) {
-            const snapshot = await charityRef.collection(col).get();
-            if (!snapshot.empty) {
-                snapshot.forEach(doc => {
-                    tempAppData[col].push(doc.data());
-                });
-            }
-        }
-
-        // إذا Firebase فارغة ولدينا بيانات محلية، ابدأ بالبيانات المحلية
-        const totalCloud = Object.values(tempAppData).reduce((s, a) => s + a.length, 0);
-        if (totalCloud === 0) {
-            const localData = localStorage.getItem('alkhair_app_data');
-            if (localData) {
-                try { appData = JSON.parse(localData); } catch(e) {}
-                console.log('⚠️ Firebase فارغة - تم التحميل من LocalStorage');
-            }
-        } else {
-            appData = tempAppData;
-            // حفظ نسخة محلية احتياطية
-            localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
-        }
-
-        // تحديث lastSyncedData
-        Object.keys(appData).forEach(col => {
-            (appData[col] || []).forEach(item => {
-                if (item && item.id) {
-                    lastSyncedData[col][item.id] = JSON.stringify(item);
-                }
-            });
-        });
-
-        if (syncStatusUI) {
-            syncStatusUI.innerText = '✅ متزامن مع السحابة (' + new Date().toLocaleTimeString('ar-EG') + ')';
-            syncStatusUI.style.color = '';
-        }
-        if (syncIndUI) syncIndUI.style.background = '#10b981';
-
-        window.renderPage('dashboard');
-        window.updateStatusBar();
-        console.log('✅ Firebase sync OK - إجمالي السجلات:', totalCloud);
-
-    } catch (err) {
-        console.error("Firebase Sync Error:", err.code, err.message);
-
-        // تحميل من LocalStorage كـ fallback
-        const localData = localStorage.getItem('alkhair_app_data');
-        if (localData) {
-            try { appData = JSON.parse(localData); } catch(e) {}
-        }
-
-        if (err.code === 'permission-denied') {
-            if (syncStatusUI) {
-                syncStatusUI.innerText = '🔒 Firebase: يجب ضبط قواعد Firestore - انظر التعليمات';
-                syncStatusUI.style.color = '#e11d48';
-            }
-            if (syncIndUI) syncIndUI.style.background = '#e11d48';
-            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.error('🔒 FIRESTORE PERMISSION DENIED');
-            console.error('الحل: اذهب إلى Firebase Console > Firestore > Rules');
-            console.error('وضع هذه القاعدة:');
-            console.error('match /charities/global_shared_data/{document=**} {');
-            console.error('  allow read, write: if true;');
-            console.error('}');
-            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        } else {
-            if (syncStatusUI) {
-                syncStatusUI.innerText = '⚠️ تعذر الاتصال بالسحابة (محلي)';
-                syncStatusUI.style.color = '#f59e0b';
-            }
-            if (syncIndUI) syncIndUI.style.background = '#f59e0b';
-        }
-
-        window.renderPage('dashboard');
-        window.updateStatusBar();
-    }
-
-    // --- مستمع real-time (يسجل مرة واحدة فقط) ---
-    if (!_snapshotListenerAttached && window.db) {
-        _snapshotListenerAttached = true;
-        try {
-            const charityRef = window.db.collection('charities').doc('global_shared_data');
-            // نستمع على كل المجموعات الفرعية
-            ['cases', 'donations', 'expenses', 'volunteers', 'affidavits', 'inventory'].forEach(col => {
-                charityRef.collection(col).onSnapshot((snapshot) => {
-                    if (!snapshot.metadata.hasPendingWrites && !snapshot.metadata.fromCache) {
-                        console.log(`🔄 تحديث مباشر: ${col} من جهاز آخر`);
-                        const syncEl = document.getElementById('sync-status');
-                        const isSaving = syncEl && syncEl.innerText.includes('جاري الحفظ');
-                        if (!isSaving) {
-                            // تأخير بسيط لتجميع التحديثات المتعددة
-                            clearTimeout(window._syncDebounce);
-                            window._syncDebounce = setTimeout(() => {
-                                window.initFirebaseSync();
-                            }, 1500);
-                        }
-                    }
-                }, (e) => {
-                    if (e.code !== 'permission-denied') {
-                        console.error(`Snapshot error (${col}):`, e.code);
-                    }
-                });
-            });
-            console.log('👂 Real-time listeners attached for all collections');
-        } catch (e) { console.error("Snapshot setup error", e); }
-    }
-};
-
-window.syncToFirestoreBackground = async () => {
-    if (!window.db) return; // ✅ لا يشترط تسجيل الدخول
-    const syncStatusUI = document.getElementById('sync-status');
-    const syncIndUI = document.getElementById('sync-indicator');
-
-    if (syncStatusUI) syncStatusUI.innerText = 'جاري الحفظ في السحابة...';
-    if (syncIndUI) syncIndUI.style.background = '#f59e0b';
-
-    try {
-        const promises = [];
-        const charityRef = window.db.collection('charities').doc('global_shared_data');
-
-        for (const col of Object.keys(lastSyncedData)) {
-            if (!appData[col]) continue;
-            for (const item of appData[col]) {
-                if (!item || !item.id) continue;
-                const strItem = JSON.stringify(item);
-                const lastStr = lastSyncedData[col][item.id];
-
-                if (strItem !== lastStr) {
-                    promises.push(charityRef.collection(col).doc(String(item.id)).set(item, { merge: true }));
-                    lastSyncedData[col][item.id] = strItem;
-                }
-            }
-        }
-        if (promises.length > 0) {
-            await Promise.all(promises);
-            console.log(`✅ تم رفع ${promises.length} تغيير إلى Firebase`);
-        } else {
-            console.log('ℹ️ لا توجد تغييرات جديدة للمزامنة');
-        }
-
-        if (syncStatusUI) syncStatusUI.innerText = '✅ البيانات محفوظة بالسحابة';
-        if (syncIndUI) syncIndUI.style.background = '#10b981';
-    } catch (err) {
-        console.error("Firebase Sync error:", err);
-        if (syncStatusUI) syncStatusUI.innerText = '❌ خطأ في الحفظ: ' + err.code;
-        if (syncIndUI) syncIndUI.style.background = '#e11d48';
-        // عرض تفاصيل الخطأ
-        if (err.code === 'permission-denied') {
-            console.error('🔒 خطأ: قواعد Firestore ترفض الكتابة - راجع FIREBASE_GUIDE_AR.md');
-            if (syncStatusUI) syncStatusUI.innerText = '🔒 مرفوض - راجع قواعد Firestore';
-        }
-    }
-};
+// --- (Old Sync Logic Removed for Sandbox Version) ---
 
 window.updateDataInFile = async () => {
     // PERMANENT SAVING DISABLED FOR TRIAL VERSION
@@ -599,12 +521,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const sidebar = document.getElementById('sidebar');
         const linkFolderBtn = document.getElementById('link-folder-btn');
 
-        // Force bypass immediately
-        if (authScreen) authScreen.style.setProperty('display', 'none', 'important');
-        if (mainApp) mainApp.style.setProperty('display', 'flex', 'important');
-        window.hideSplash();
-        if (typeof window.renderPage === 'function') {
-            window.renderPage('dashboard');
+        // --- AUTH CHECK ---
+        const loggedCharityId = localStorage.getItem('logged_charity_id');
+        const loggedCharityName = localStorage.getItem('logged_charity_name');
+
+        if (loggedCharityId && loggedCharityName) {
+            window.updateAppBranding(loggedCharityName);
+            if (authScreen) authScreen.style.display = 'none';
+            if (mainApp) mainApp.style.display = 'flex';
+            window.hideSplash();
+            window.initCharitySync(loggedCharityId);
+            if (typeof window.renderPage === 'function') {
+                window.renderPage('dashboard');
+            }
+        } else {
+            // Show splash then auth
+            if (splashScreen) splashScreen.style.display = 'flex';
+            setTimeout(() => {
+                window.hideSplash();
+                if (authScreen) authScreen.style.display = 'flex';
+            }, 2000);
         }
 
         // --- INITIAL DATA LOAD ---
@@ -623,21 +559,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return; // Stop normal init
         }
 
-        // Start Public Sync Immediately (No Auth needed)
-        if (window.db) {
-            window.initFirebaseSync();
-        }
+        // (Public sync removed to prioritize auth)
 
         // --- UI EVENT LISTENERS ---
         if (startTrialBtn) {
             startTrialBtn.addEventListener('click', () => {
                 window.hideSplash();
-                if (authScreen) authScreen.style.display = 'none';
-                if (mainApp) mainApp.style.display = 'flex';
-                if (typeof window.renderPage === 'function') {
-                    window.renderPage('dashboard');
-                }
-                window.updateStatusBar();
+                if (authScreen) authScreen.style.display = 'flex';
+                if (mainApp) mainApp.style.display = 'none';
             });
         }
 
@@ -3781,7 +3710,7 @@ window.generateReport = () => {
                 <div style="font-family: 'Cairo', sans-serif; direction: rtl; padding: 20px; border: 1px solid #333;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1d4ed8; padding-bottom: 15px; margin-bottom: 20px;">
                         <div style="text-align: right;">
-                            <h2 style="color: #1d4ed8; margin: 0;">جمعية الخير لتنمية المجتمع بمسير</h2>
+                            <h2 style="color: #1d4ed8; margin: 0;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                         </div>
                         <img src="logo.png" style="height: 60px;">
@@ -3841,7 +3770,7 @@ window.generateReport = () => {
                 <div style="font-family: 'Cairo', sans-serif; direction: rtl; padding: 20px; border: 1px solid #333;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1d4ed8; padding-bottom: 15px; margin-bottom: 20px;">
                         <div style="text-align: right;">
-                            <h2 style="color: #1d4ed8; margin: 0;">جمعية الخير لتنمية المجتمع بمسير</h2>
+                            <h2 style="color: #1d4ed8; margin: 0;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                         </div>
                         <img src="logo.png" style="height: 60px;">
@@ -3905,7 +3834,7 @@ window.generateReport = () => {
                         <div style="text-align: right; flex: 2; display: flex; align-items: center; gap: 15px;">
                             <img src="logo.png" style="height: 50px;">
                             <div>
-                                <h2 style="margin: 0; font-size: 1.2rem; font-weight: 800;">جمعية الخير لتنمية المجتمع بمسير</h2>
+                                <h2 style="margin: 0; font-size: 1.2rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h2>
                                 <p style="margin: 0; font-size: 0.8rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                                 <p style="margin: 0; font-size: 0.8rem;">سجل رسمي - ${title}</p>
                             </div>
@@ -3966,7 +3895,7 @@ window.generateReport = () => {
                 <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 5mm; color: #000; width: 100%; box-sizing: border-box;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #e11d48; padding-bottom: 10px; margin-bottom: 20px;">
                         <div style="text-align: right; flex: 2;">
-                            <h2 style="color: #e11d48; margin: 0; font-size: 1.4rem;">جمعية الخير لتنمية المجتمع بمسير</h2>
+                            <h2 style="color: #e11d48; margin: 0; font-size: 1.4rem;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.9rem; font-weight: 800;">سجل الحالات الاستثنائية والطارئة</p>
                         </div>
                         <img src="logo.png" style="height: 65px;">
@@ -4075,7 +4004,7 @@ window.openDetailsModal = (id) => {
                 <!--Compact Header-->
                 <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 2.5px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 20px; height: 10vh;">
                     <div style="text-align: right; flex: 2;">
-                        <h1 style="color: #1d4ed8; margin: 0; font-size: 1.4rem; font-weight: 800;">جمعية الخير لتنمية المجتمع بمسير</h1>
+                        <h1 style="color: #1d4ed8; margin: 0; font-size: 1.4rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h1>
                         <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                     </div>
                     <div style="flex: 1; text-align: center;">
@@ -4487,7 +4416,7 @@ window.generateCardHTML = (c, isBulk = false) => {
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <img src="logo.png" style="height: 35px; filter: brightness(0) invert(1);">
                         <div style="color: #fff;">
-                            <div style="font-weight: 900; font-size: 0.8rem; line-height: 1.1;">جمعية الخير لتنمية المجتمع بمسير</div>
+                            <div style="font-weight: 900; font-size: 0.8rem; line-height: 1.1;">${window.charityName || 'جمعية الخير'}</div>
                         </div>
                     </div>
                     <div style="color: #edaf2e; font-weight: 900; font-size: 0.9rem; letter-spacing: 0.5px;">بطاقة هويــة</div>
@@ -4538,7 +4467,7 @@ window.generateCardHTML = (c, isBulk = false) => {
 
                 <!-- Premium Footer -->
                 <div style="height: 25px; background: #1d4ed8; display: flex; align-items: center; justify-content: center; gap: 10px; color: white; font-size: 0.6rem; font-weight: 800;">
-                    <span>معاً لخدمة المجتمع - جمعية الخير بمـسـيـر</span>
+                    <span>معاً لخدمة المجتمع - ${window.charityName || 'جمعية الخير'}</span>
                 </div>
             </div>
         `;
@@ -5561,7 +5490,7 @@ window.printAffidavitDoc = (aff) => {
             <div style="font-family: 'Cairo', sans-serif; padding: 60px; border: 1px solid #ccc; max-width: 800px; margin: auto; background: white; min-height: 1000px; display: flex; flex-direction: column; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1d4ed8; padding-bottom: 15px; margin-bottom: 30px;">
                     <div style="text-align: right;">
-                        <h1 style="color: #1d4ed8; margin: 0; font-size: 2rem; font-weight: 900;">جمعية الخير لتنمية المجتمع بمسير</h1>
+                        <h1 style="color: #1d4ed8; margin: 0; font-size: 2rem; font-weight: 900;">${window.charityName || 'جمعية الخير'}</h1>
                         <p style="margin: 0; font-size: 1rem; font-weight: 700;">مشهرة برقم 1899 لسنة 2012</p>
                     </div>
                     <img src="logo.png" style="height: 80px;">
@@ -5572,13 +5501,13 @@ window.printAffidavitDoc = (aff) => {
                 
                 <div style="flex: 1;">
                     <p style="font-size: 1.3rem; line-height: 2.2; text-align: right; margin-bottom: 30px;">
-                        تشهد جمعية الخير لتنمية المجتمع بمسير بأنه تم الاستعلام في سجلات الجمعية عن:
+                        تشهد ${window.charityName || 'الجمعية'} بأنه تم الاستعلام في سجلات الجمعية عن:
                         <br>
                         <strong>السيد / ${aff.husName}</strong> (الرقم القومي: ${aff.husId || '....................'})
                         <br>
                         <strong>والسيدة / ${aff.wifeName}</strong> (الرقم القومي: ${aff.wifeId || '....................'})
                         <br><br>
-                        <span style="font-weight: 800; text-decoration: underline; background: #f9f9f9; padding: 5px;">وهذا بيان منا بأنهم لا يتقاضون أي مبالغ أو مساعدات عينية من جمعية الخير لتنمية المجتمع بمسير حتى تاريخه.</span>
+                        <span style="font-weight: 800; text-decoration: underline; background: #f9f9f9; padding: 5px;">وهذا بيان منا بأنهم لا يتقاضون أي مبالغ أو مساعدات عينية من ${window.charityName || 'الجمعية'} حتى تاريخه.</span>
                     </p>
                     
                     <p style="text-align: right; color: #666; font-size: 0.95rem; margin-top: 50px;">
@@ -5594,7 +5523,7 @@ window.printAffidavitDoc = (aff) => {
                     <div style="text-align: center; width: 280px;">
                         <p style="font-weight: 800; margin-bottom: 5px;">يعتمد،،</p>
                         <p style="font-weight: 800; margin-bottom: 50px;">رئيس مجلس الإدارة</p>
-                        <p style="font-size: 1.25rem; font-weight: 900; color: #1a5c38;">أ/ هيثم إبراهيم شمس</p>
+                        <p style="font-size: 1.25rem; font-weight: 900; color: #1a5c38;">...............................</p>
                     </div>
                 </div>
                 
@@ -5826,7 +5755,7 @@ window.renderCategoryRegister = (category) => {
                     <div class="print-only" style="display: none; border-bottom: 3px double #1d4ed8; padding-bottom: 20px; margin-bottom: 30px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="text-align: right;">
-                                <h1 style="color: #1d4ed8; margin: 0; font-size: 2rem;">جمعية الخير لتنمية المجتمع بمسير</h1>
+                                <h1 style="color: #1d4ed8; margin: 0; font-size: 2rem;">${window.charityName || 'جمعية الخير'}</h1>
                                 <p style="margin: 5px 0 0; font-weight: 600;">كشف حالات تصنيف: ${category}</p>
                             </div>
                             <img src="logo.png" style="height: 80px;">
