@@ -87,6 +87,9 @@
                     <i class="fas fa-lock"></i>
                     <input type="password" id="reg-password" placeholder="كلمة المرور (6 أرقام على الأقل)...">
                 </div>
+                <div id="register-error"
+                    style="color: #e11d48; font-size: 0.85rem; text-align: center; margin-bottom: 15px; display: none; font-weight: 700;">
+                </div>
                 <button class="btn-primary" id="register-btn"
                     style="width: 100%; padding: 15px; font-size: 1.1rem; margin-top: 10px;"
                     onclick="window.handleRegister()">إنشاء حساب والبدء <i class="fas fa-plus-circle"></i></button>
@@ -847,9 +850,9 @@
             const s = document.getElementById('splash-screen');
             if (s) s.style.display = 'none';
         };
-        window.showAuthPage = () => {};
+        window.showAuthPage = () => { };
     </script>
-    <script src="script.js?v=2.0"></script>
+    <script src="script.js?v=2.1"></script>
 </body>
 
 </html>

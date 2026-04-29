@@ -10,15 +10,23 @@ window.onerror = function (msg, url, line, col, error) {
 };
 
 function showAuthMsg(msg, isError) {
-    const el = document.getElementById('auth-error');
-    if (el) {
-        el.innerText = msg;
-        el.style.display = 'block';
-        el.style.background = isError ? '#fee2e2' : '#d1fae5';
-        el.style.color = isError ? '#ef4444' : '#059669';
-        el.style.border = isError ? '1px solid #fca5a5' : '1px solid #6ee7b7';
-    }
+    ['auth-error', 'register-error'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerText = msg;
+            el.style.display = 'block';
+            el.style.background = isError ? '#fee2e2' : '#d1fae5';
+            el.style.color = isError ? '#ef4444' : '#059669';
+            el.style.border = isError ? '1px solid #fca5a5' : '1px solid #6ee7b7';
+        }
+    });
 }
+
+// Normalize Arabic numerals to English numerals
+window.normalizePhone = (phone) => {
+    if (!phone) return "";
+    return phone.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+};
 
 // --- CHARITY BRANDING & AUTH ---
 window.updateAppBranding = (name) => {
@@ -41,19 +49,31 @@ window.showRegister = () => {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('register-form').style.display = 'block';
     document.getElementById('auth-title').innerText = 'إنشاء حساب جمعية جديد';
+    showAuthMsg('', false); // Clear errors
+    ['auth-error', 'register-error'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
 };
 
 window.showLogin = () => {
     document.getElementById('login-form').style.display = 'block';
     document.getElementById('register-form').style.display = 'none';
     document.getElementById('auth-title').innerText = 'تسجيل الدخول';
+    showAuthMsg('', false); // Clear errors
+    ['auth-error', 'register-error'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
 };
 
 window.handleRegister = async () => {
     const charityName = (document.getElementById('reg-charity-name') || {}).value?.trim();
     const ownerName = (document.getElementById('reg-owner-name') || {}).value?.trim();
-    const phone = (document.getElementById('reg-phone') || {}).value?.trim();
+    let phone = (document.getElementById('reg-phone') || {}).value?.trim();
     const password = (document.getElementById('reg-password') || {}).value?.trim();
+
+    phone = window.normalizePhone(phone);
 
     // Validate fields
     if (!charityName || !ownerName || !phone || !password) {
@@ -112,8 +132,10 @@ window.handleRegister = async () => {
 };
 
 window.handleLogin = async () => {
-    const phone = (document.getElementById('login-phone') || {}).value?.trim();
+    let phone = (document.getElementById('login-phone') || {}).value?.trim();
     const password = (document.getElementById('login-password') || {}).value?.trim();
+
+    phone = window.normalizePhone(phone);
 
     if (!phone || !password) {
         showAuthMsg('يرجى إدخال رقم الهاتف وكلمة المرور', true);
