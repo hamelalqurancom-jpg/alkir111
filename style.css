@@ -804,10 +804,14 @@ body {
     width: 100%;
     height: 100%;
     background: #f3f2f1;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 2000;
+}
+.login-overlay[style*="display: flex"],
+.login-overlay[style*="display:flex"] {
+    display: flex !important;
 }
 
 .login-card {

@@ -11,39 +11,27 @@ const firebaseConfig = {
 };
 
 // --- إعدادات Cloudinary لرفع الصور ---
-// (يرجى استبدال هذه القيم ببيانات حسابك)
 const cloudinaryConfig = {
   cloudName: "dwrhl6gjf",
   uploadPreset: "asr-kareem"
 };
 window.cloudinaryConfig = cloudinaryConfig;
 
-/**
- * --- قواعد حماية Firestore المطلوبة (وضع بدون حسابات) ---
- * اذهب إلى Firebase Console > Firestore > Rules واكتب هذا:
- * 
- * [نسخة مفتوحة - للاختبار فقط]
- * rules_version = '2';
- * service cloud.firestore {
- *   match /databases/{database}/documents {
- *     match /charities/global_shared_data/{document=**} {
- *       allow read, write: if true; // مفتوح للجميع - للاختبار فقط
- *     }
- *   }
- * }
- * 
- * الموعد النهائي: ستنتهي مدة allow read, write: if true
- * لذلك خلال فترة الاختبار ضع الموعد لشهر من الآن
- *
- * [تنبيه]: لا تستخدم allow read, write: if true في الإنتاج
- */
-
-// تهيئة Firebase
-firebase.initializeApp(firebaseConfig);
-
-// تعريف خدمات Firebase
-window.auth = firebase.auth();
-window.db = firebase.firestore();
-
-// إعدادات اللغة لتسجيل الدخول (عربي)
-window.auth.languageCode = 'ar';
+// تهيئة Firebase (محاطة بـ try/catch لضمان عمل النظام حتى بدون إنترنت)
+try {
+  if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+    window.db = firebase.firestore();
+    window.auth = firebase.auth();
+    window.auth.languageCode = 'ar';
+    console.log('✅ Firebase connected successfully');
+  } else {
+    console.warn('⚠️ Firebase SDK not loaded - running in offline mode');
+    window.auth = null;
+    window.db = null;
+  }
+} catch (e) {
+  console.warn('⚠️ Firebase init failed - running in offline mode:', e.message);
+  window.auth = null;
+  window.db = null;
+}
