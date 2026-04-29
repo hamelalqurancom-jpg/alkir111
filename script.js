@@ -50,149 +50,133 @@ window.showLogin = () => {
 };
 
 window.handleRegister = async () => {
-    const charityName = document.getElementById('reg-charity-name').value.trim();
-    const ownerName = document.getElementById('reg-owner-name').value.trim();
-    const phone = document.getElementById('reg-phone').value.trim();
-    const password = document.getElementById('reg-password').value.trim();
+    const charityName = (document.getElementById('reg-charity-name') || {}).value?.trim();
+    const ownerName = (document.getElementById('reg-owner-name') || {}).value?.trim();
+    const phone = (document.getElementById('reg-phone') || {}).value?.trim();
+    const password = (document.getElementById('reg-password') || {}).value?.trim();
 
+    // Validate fields
     if (!charityName || !ownerName || !phone || !password) {
         showAuthMsg('يرجى تعبئة جميع الحقول', true);
         return;
     }
-
-    // Phone validation (11 digits, numeric)
     if (!/^\d{11}$/.test(phone)) {
-        showAuthMsg('رقم الهاتف يجب أن يكون 11 رقماً وبالإنجليزية', true);
+        showAuthMsg('رقم الهاتف يجب أن يكون 11 رقماً بالأرقام الإنجليزية فقط', true);
         return;
     }
-
-    // Password validation (min 6 characters)
     if (password.length < 6) {
-        showAuthMsg('كلمة المرور يجب أن تكون 6 أرقام/أحرف على الأقل', true);
+        showAuthMsg('كلمة المرور يجب ألا تقل عن 6 خانات', true);
         return;
     }
 
-    const btn = document.getElementById('register-btn');
-    const originalText = btn.innerHTML;
-
-    try {
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنشاء...';
-        }
-
-        if (!window.auth || !window.db) {
-            throw new Error('فشل الاتصال بخدمات السحابة');
-        }
-
-        // Use phone as email proxy for Firebase Auth
-        const email = `${phone}@charity.app`;
-        const userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-
-        // Save profile to Firestore
-        await window.db.collection('charities').doc(user.uid).set({
-            charityName,
-            ownerName,
-            phone,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Initialize empty data for this user
-        await window.db.collection('charities').doc(user.uid).collection('data').doc('app_state').set({
-            cases: [],
-            donations: [],
-            expenses: [],
-            volunteers: [],
-            affidavits: [],
-            inventory: []
-        });
-
-        localStorage.setItem('logged_charity_name', charityName);
-        localStorage.setItem('logged_charity_id', user.uid);
-
-        showAuthMsg('تم إنشاء الحساب بنجاح!', false);
-
-        setTimeout(() => {
-            window.updateAppBranding(charityName);
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('main-app').style.display = 'flex';
-            window.renderPage('dashboard');
-            // Start specific sync for this user
-            window.initCharitySync(user.uid);
-        }, 1500);
-
-    } catch (error) {
-        console.error('Registration error:', error);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-        if (error.code === 'auth/email-already-in-use') {
-            showAuthMsg('رقم الهاتف هذا مسجل بالفعل', true);
-        } else {
-            showAuthMsg('حدث خطأ: ' + error.message, true);
-        }
+    // Check if phone already registered
+    const existing = JSON.parse(localStorage.getItem('charity_accounts') || '{}');
+    if (existing[phone]) {
+        showAuthMsg('رقم الهاتف هذا مسجل بالفعل، يرجى تسجيل الدخول', true);
+        return;
     }
+
+    // Show loading
+    const btn = document.getElementById('register-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنشاء...'; }
+
+    // Generate unique ID for this charity
+    const charityId = 'charity_' + phone + '_' + Date.now();
+
+    // Save account locally
+    existing[phone] = { charityId, charityName, ownerName, phone, password, createdAt: new Date().toISOString() };
+    localStorage.setItem('charity_accounts', JSON.stringify(existing));
+
+    // Save session
+    localStorage.setItem('logged_charity_name', charityName);
+    localStorage.setItem('logged_charity_id', charityId);
+    localStorage.setItem('logged_charity_phone', phone);
+
+    // Initialize empty data
+    const emptyData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [] };
+    localStorage.setItem('alkhair_data_' + charityId, JSON.stringify(emptyData));
+
+    showAuthMsg('✅ تم إنشاء الحساب بنجاح! جاري الدخول...', false);
+
+    setTimeout(() => {
+        appData = emptyData;
+        window.updateAppBranding(charityName);
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        window.renderPage('dashboard');
+        // Try Firebase sync in background (non-blocking)
+        window.initCharitySync(charityId);
+    }, 1200);
+
+    if (btn) { btn.disabled = false; btn.innerHTML = 'إنشاء حساب والبدء <i class="fas fa-plus-circle"></i>'; }
 };
 
 window.handleLogin = async () => {
-    const phone = document.getElementById('login-phone').value.trim();
-    const password = document.getElementById('login-password').value.trim();
+    const phone = (document.getElementById('login-phone') || {}).value?.trim();
+    const password = (document.getElementById('login-password') || {}).value?.trim();
 
     if (!phone || !password) {
-        showAuthMsg('يرجى إدخال الهاتف وكلمة المرور', true);
+        showAuthMsg('يرجى إدخال رقم الهاتف وكلمة المرور', true);
         return;
     }
 
-    try {
-        const email = `${phone}@charity.app`;
-        const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
+    // Check accounts registry
+    const accounts = JSON.parse(localStorage.getItem('charity_accounts') || '{}');
+    const account = accounts[phone];
 
-        // Fetch profile
-        const doc = await window.db.collection('charities').doc(user.uid).get();
-        if (doc.exists) {
-            const data = doc.data();
-            localStorage.setItem('logged_charity_name', data.charityName);
-            localStorage.setItem('logged_charity_id', user.uid);
-            window.updateAppBranding(data.charityName);
-
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('main-app').style.display = 'flex';
-            window.renderPage('dashboard');
-            window.initCharitySync(user.uid);
-        } else {
-            showAuthMsg('لم يتم العثور على بيانات الجمعية', true);
-        }
-
-    } catch (error) {
-        console.error('Login error:', error);
-        showAuthMsg('خطأ في الدخول: الهاتف أو كلمة المرور غير صحيحة', true);
+    if (!account) {
+        showAuthMsg('رقم الهاتف غير مسجل، يرجى إنشاء حساب جديد', true);
+        return;
     }
+
+    if (account.password !== password) {
+        showAuthMsg('كلمة المرور غير صحيحة', true);
+        return;
+    }
+
+    // Successful login
+    localStorage.setItem('logged_charity_name', account.charityName);
+    localStorage.setItem('logged_charity_id', account.charityId);
+    localStorage.setItem('logged_charity_phone', phone);
+
+    // Load charity data
+    const savedData = localStorage.getItem('alkhair_data_' + account.charityId);
+    if (savedData) {
+        try { appData = JSON.parse(savedData); } catch (e) { console.error('Data parse error', e); }
+    }
+
+    window.updateAppBranding(account.charityName);
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    window.renderPage('dashboard');
+
+    // Try Firebase sync in background (non-blocking)
+    window.initCharitySync(account.charityId);
 };
 
 window.initCharitySync = (uid) => {
-    if (!window.db) return;
-
-    // Set up real-time listener for this specific charity's data
-    window.db.collection('charities').doc(uid).collection('data').doc('app_state')
-        .onSnapshot((doc) => {
-            if (doc.exists) {
-                appData = doc.data();
-                window.updateStatusBar();
-                localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
-
-                // If on a page that needs data, re-render
-                const activeItem = document.querySelector('.sidebar-nav li.active');
-                if (activeItem) {
-                    const page = activeItem.getAttribute('data-page');
-                    window.renderPage(page);
+    if (!window.db || !uid) return;
+    // Real-time listener for this specific charity's data
+    try {
+        window.db.collection('charities').doc(uid).collection('data').doc('app_state')
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const cloudData = doc.data();
+                    // Only update if cloud has more records (merge strategy)
+                    const cloudTotal = Object.values(cloudData).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
+                    const localTotal = Object.values(appData).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
+                    if (cloudTotal >= localTotal) {
+                        appData = cloudData;
+                        localStorage.setItem('alkhair_data_' + uid, JSON.stringify(appData));
+                        window.updateStatusBar();
+                    }
                 }
-            }
-        }, (error) => {
-            console.error("Sync error:", error);
-        });
+            }, (err) => {
+                console.log('Cloud sync unavailable (offline mode active):', err.code);
+            });
+    } catch (e) {
+        console.log('Firebase sync skipped:', e.message);
+    }
 };
 
 window.logoutApp = () => {
@@ -244,13 +228,17 @@ window.updateStatusBar = () => {
 
 window.saveData = (writeToFile = true) => {
     window.updateStatusBar();
+    const uid = localStorage.getItem('logged_charity_id');
+    // Save to charity-specific key
+    if (uid) {
+        localStorage.setItem('alkhair_data_' + uid, JSON.stringify(appData));
+    }
     localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
 
-    // Sync to user-specific Firestore location
-    const uid = localStorage.getItem('logged_charity_id');
+    // Sync to Firebase in background (non-blocking)
     if (uid && window.db) {
         window.db.collection('charities').doc(uid).collection('data').doc('app_state').set(appData)
-            .catch(err => console.error("Cloud sync fail", err));
+            .catch(err => console.log('Cloud sync (offline):', err.code));
     }
 };
 
@@ -530,6 +518,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const loggedCharityName = localStorage.getItem('logged_charity_name');
 
         if (loggedCharityId && loggedCharityName) {
+            // Load charity-specific data first
+            const charityData = localStorage.getItem('alkhair_data_' + loggedCharityId);
+            if (charityData) {
+                try { appData = JSON.parse(charityData); } catch (e) { }
+            }
             window.updateAppBranding(loggedCharityName);
             if (authScreen) authScreen.style.display = 'none';
             if (mainApp) mainApp.style.display = 'flex';
@@ -547,12 +540,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 2000);
         }
 
-        // --- INITIAL DATA LOAD ---
-        const localData = localStorage.getItem('alkhair_app_data');
-        if (localData) {
-            try {
-                appData = JSON.parse(localData);
-            } catch (e) { console.error("Local load fail", e); }
+        // --- INITIAL DATA LOAD (fallback) ---
+        if (!loggedCharityId) {
+            const localData = localStorage.getItem('alkhair_app_data');
+            if (localData) {
+                try { appData = JSON.parse(localData); } catch (e) { }
+            }
         }
 
         // --- CHECK FOR QR SCAN (PUBLIC VIEW) ---
