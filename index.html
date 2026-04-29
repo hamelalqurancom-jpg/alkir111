@@ -843,9 +843,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script>
-        // No Auth Pages needed
-        window.hideSplash = () => { };
-        window.showAuthPage = () => { };
+        window.hideSplash = () => {
+            const s = document.getElementById('splash-screen');
+            if (s) s.style.display = 'none';
+        };
+        window.showAuthPage = () => {};
     </script>
     <script src="script.js?v=1.2"></script>
 </body>

@@ -300,6 +300,10 @@ window.exportToExcel = () => {
 
 window.logoutApp = () => {
     if (window.auth) window.auth.signOut();
+    localStorage.removeItem('logged_charity_name');
+    localStorage.removeItem('logged_charity_id');
+    localStorage.removeItem('alkhair_app_data');
+    location.reload();
 };
 
 window.showCaseQRCode = (caseId) => {
