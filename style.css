@@ -1438,3 +1438,124 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     opacity: 1;
 }
+
+/* --- Public Case View Styles (Premium) --- */
+#public-case-view {
+    font-family: 'Cairo', sans-serif;
+    animation: fadeInPublic 0.5s ease-out;
+}
+
+@keyframes fadeInPublic {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.case-info-public .info-item {
+    background: #ffffff;
+    padding: 15px 20px;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.case-info-public .info-item:hover {
+    border-color: #3730a3;
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(55, 48, 163, 0.08);
+}
+
+.case-info-public .info-item strong {
+    color: #3730a3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.case-info-public .info-item span {
+    font-weight: 800;
+    color: #0f172a;
+    font-size: 1.05rem;
+}
+
+.case-photos-public .photo-card {
+    border: 1px solid #f1f5f9;
+    padding: 15px;
+    border-radius: 16px;
+    background: white;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.case-photos-public .photo-card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+}
+
+.case-photos-public img {
+    width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: all 0.4s ease;
+    cursor: pointer;
+}
+
+.case-photos-public img:hover {
+    transform: scale(1.03);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+}
+
+.public-btn-home {
+    background: #3730a3;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(55, 48, 163, 0.3);
+}
+
+.public-btn-home:hover {
+    background: #1e1b4b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(55, 48, 163, 0.4);
+}
+
+#qrcode-container img {
+    border: 8px solid white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+    #public-case-view {
+        padding: 10px !important;
+    }
+    #public-case-view > div {
+        padding: 20px !important;
+    }
+    #public-case-content > div {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+    .case-photos-public {
+        order: -1;
+        flex-direction: row !important;
+        overflow-x: auto;
+        padding-bottom: 10px;
+    }
+    .case-photos-public .photo-card {
+        min-width: 200px;
+    }
+    .case-info-public .info-item {
+        padding: 12px;
+    }
+}

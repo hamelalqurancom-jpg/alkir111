@@ -218,6 +218,132 @@ window.logoutApp = () => {
     if (window.auth) window.auth.signOut();
 };
 
+window.showCaseQRCode = (caseId) => {
+    const qrContainer = document.getElementById('qrcode-container');
+    const qrModal = document.getElementById('qr-modal');
+    const qrLinkText = document.getElementById('qr-link-copy');
+    
+    if (!qrContainer || !qrModal) return;
+
+    // Clear previous QR
+    qrContainer.innerHTML = '';
+    
+    // Construct the URL (works for both local and hosted)
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('caseId', caseId);
+    const targetUrl = currentUrl.toString();
+
+    // Generate QR
+    new QRCode(qrContainer, {
+        text: targetUrl,
+        width: 200,
+        height: 200,
+        colorDark: "#3730a3",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    if (qrLinkText) qrLinkText.innerText = targetUrl;
+    qrModal.style.display = 'flex';
+};
+
+window.renderPublicCase = (caseId) => {
+    // Wait for appData if coming from direct link and Firebase is used
+    // For this simple implementation, we assume appData is loaded or we fetch it
+    const findCase = () => {
+        const c = appData.cases.find(x => String(x.id) === String(caseId));
+        if (!c) {
+            // If not in local appData, we might need to wait for Firebase sync
+            if (window.db) {
+                document.getElementById('public-case-content').innerHTML = '<div style="text-align:center; padding:50px;"><i class="fas fa-spinner fa-spin fa-3x"></i><p>جاري جلب بيانات الحالة من السحابة...</p></div>';
+                document.getElementById('public-case-view').style.display = 'block';
+                
+                window.db.collection('charities').doc('global_shared_data').collection('cases').doc(String(caseId)).get().then(doc => {
+                    if (doc.exists) {
+                        render(doc.data());
+                    } else {
+                        document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">عذراً، هذه الحالة غير موجودة أو تم حذفها.</p>';
+                    }
+                }).catch(err => {
+                    document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">خطأ في الاتصال بالسحابة.</p>';
+                });
+            } else {
+                 document.getElementById('public-case-content').innerHTML = '<p style="text-align:center; color:red; padding:50px;">تعذر تحميل البيانات.</p>';
+            }
+            return;
+        }
+        render(c);
+    };
+
+    const render = (c) => {
+        document.getElementById('public-case-view').style.display = 'block';
+        const container = document.getElementById('public-case-content');
+        
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 250px; gap: 30px;">
+                <div class="case-info-public">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                        <div class="info-item"><strong><i class="fas fa-hashtag"></i> رقم البحث:</strong> <span style="color:#e11d48; font-weight:800;">${c.searchNumber || '-'}</span></div>
+                        <div class="info-item"><strong><i class="fas fa-calendar"></i> تاريخ التسجيل:</strong> ${c.date || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-user"></i> الاسم:</strong> ${c.name}</div>
+                        <div class="info-item"><strong><i class="fas fa-id-card"></i> الرقم القومي:</strong> ${c.nationalId || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-briefcase"></i> المهنة:</strong> ${c.job || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-phone"></i> الهاتف:</strong> ${c.phone || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-users"></i> عدد الأفراد:</strong> ${c.familyMembers || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-info-circle"></i> الوضع:</strong> ${c.socialStatus || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-tags"></i> التصنيف:</strong> ${c.type || '-'}</div>
+                        <div class="info-item"><strong><i class="fas fa-map-marker-alt"></i> العنوان:</strong> ${c.address || '-'}</div>
+                    </div>
+                    
+                    <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <h4 style="color: #3730a3; margin-bottom: 15px;"><i class="fas fa-users"></i> أفراد الأسرة</h4>
+                        ${(c.members && c.members.length > 0) ? `
+                            <table class="data-table" style="width: 100%; border: 1px solid #eee;">
+                                <thead><tr style="background:#f8fafc;"><th>الاسم</th><th>الرقم القومي</th><th>الصلة</th><th>السن</th></tr></thead>
+                                <tbody>
+                                    ${c.members.map(m => `<tr><td>${m.name}</td><td>${m.idNo}</td><td>${m.relation}</td><td>${m.age}</td></tr>`).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="color:#999;">لا يوجد أفراد مسجلين.</p>'}
+                    </div>
+
+                    <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <h4 style="color: #3730a3; margin-bottom: 15px;"><i class="fas fa-history"></i> سجل المساعدات</h4>
+                        ${(c.aidHistory && c.aidHistory.length > 0) ? `
+                            <table class="data-table" style="width: 100%; border: 1px solid #eee;">
+                                <thead><tr style="background:#f8fafc;"><th>التاريخ</th><th>المبلغ</th><th>البيان</th></tr></thead>
+                                <tbody>
+                                    ${c.aidHistory.map(a => `<tr><td>${a.date}</td><td>${a.amount}</td><td>${a.category}</td></tr>`).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="color:#999;">لا يوجد سجل مساعدات.</p>'}
+                    </div>
+                </div>
+
+                <div class="case-photos-public" style="display: flex; flex-direction: column; gap: 20px;">
+                    <h4 style="color: #3730a3; border-bottom: 1px solid #eee; padding-bottom: 10px;"><i class="fas fa-images"></i> الوثائق المرفقة</h4>
+                    <div style="border: 1px solid #eee; padding: 10px; border-radius: 10px; text-align: center;">
+                        <span style="font-size:0.8rem; color:#666; display:block; margin-bottom:5px;">صورة الحالة</span>
+                        ${c.photoUrl ? `<img src="${c.photoUrl}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${c.photoUrl}')">` : '<div style="height:150px; background:#f5f5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#ccc;"><i class="fas fa-camera fa-2x"></i></div>'}
+                    </div>
+                    <div style="border: 1px solid #eee; padding: 10px; border-radius: 10px; text-align: center;">
+                        <span style="font-size:0.8rem; color:#666; display:block; margin-bottom:5px;">صورة البطاقة</span>
+                        ${c.idCardUrl ? `<img src="${c.idCardUrl}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${c.idCardUrl}')">` : '<div style="height:150px; background:#f5f5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#ccc;"><i class="fas fa-id-card fa-2x"></i></div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // Trigger data load
+    if (appData.cases && appData.cases.length > 0) {
+        findCase();
+    } else {
+        // Wait a bit for firebase/localstorage
+        setTimeout(findCase, 1000);
+    }
+};
+
 let _snapshotListenerAttached = false; // منع تسجيل المستمع أكثر من مرة
 
 window.initFirebaseSync = async () => {
@@ -487,6 +613,14 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 appData = JSON.parse(localData);
             } catch (e) { console.error("Local load fail", e); }
+        }
+
+        // --- CHECK FOR QR SCAN (PUBLIC VIEW) ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const caseIdParam = urlParams.get('caseId');
+        if (caseIdParam) {
+            window.renderPublicCase(caseIdParam);
+            return; // Stop normal init
         }
 
         // Start Public Sync Immediately (No Auth needed)
@@ -929,6 +1063,7 @@ window.renderPage = (page, contextId = null) => {
                                                     <i class="fas fa-user-plus" title="إضافة فرد" style="color: #1d4ed8; cursor: pointer;" onclick="event.stopPropagation(); openMemberModal(${c.id}, '${c.name}')"></i>
                                                     <i class="fas fa-file-invoice" title="عرض الوثيقة" style="color: #8b5cf6; cursor: pointer;" onclick="event.stopPropagation(); openDetailsModal(${c.id})"></i>
                                                      <i class="fas fa-barcode" title="بطاقة الهوية / الباركود" style="color: #1e293b; cursor: pointer;" onclick="event.stopPropagation(); openCaseIdCard(${c.id})"></i>
+                                                    <i class="fas fa-qrcode" title="كود QR للمتابعة" style="color: #10b981; cursor: pointer;" onclick="event.stopPropagation(); window.showCaseQRCode(${c.id})"></i>
                                                     <i class="fas fa-eye-slash" title="أرشفة (إخفاء)" style="color: #fa8c16; cursor: pointer;" onclick="event.stopPropagation(); hideCase(${c.id})"></i>
                                                     <i class="fas fa-trash-alt" title="حذف نهائي" style="color: #e11d48; cursor: pointer;" onclick="event.stopPropagation(); deleteCase(${c.id})"></i>
                                                     <i class="fas fa-chevron-down" id="icon-${c.id}" style="color: #666; cursor: pointer;"></i>
