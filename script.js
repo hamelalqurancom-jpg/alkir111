@@ -218,19 +218,25 @@ window.logoutApp = () => {
     if (window.auth) window.auth.signOut();
 };
 
+let _snapshotListenerAttached = false; // منع تسجيل المستمع أكثر من مرة
+
 window.initFirebaseSync = async () => {
     if (!window.db) {
         console.warn("Sync skipped: No DB");
         return;
     }
     const syncStatusUI = document.getElementById('sync-status');
-    if (syncStatusUI) syncStatusUI.innerText = 'جاري مزامنة البيانات السحابية...';
+    const syncIndUI = document.getElementById('sync-indicator');
+
+    if (syncStatusUI) {
+        syncStatusUI.innerText = '🔄 جاري مزامنة البيانات...';
+        syncStatusUI.style.color = '#f59e0b';
+    }
+    if (syncIndUI) syncIndUI.style.background = '#f59e0b';
 
     const tempAppData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [] };
 
     try {
-        // --- PUBLIC SHARED SYNC (NO ACCOUNTS) ---
-        // Using a fixed global document for all users
         const charityRef = window.db.collection('charities').doc('global_shared_data');
 
         for (const col of Object.keys(tempAppData)) {
@@ -242,46 +248,107 @@ window.initFirebaseSync = async () => {
             }
         }
 
-        appData = tempAppData;
+        // إذا Firebase فارغة ولدينا بيانات محلية، ابدأ بالبيانات المحلية
+        const totalCloud = Object.values(tempAppData).reduce((s, a) => s + a.length, 0);
+        if (totalCloud === 0) {
+            const localData = localStorage.getItem('alkhair_app_data');
+            if (localData) {
+                try { appData = JSON.parse(localData); } catch(e) {}
+                console.log('⚠️ Firebase فارغة - تم التحميل من LocalStorage');
+            }
+        } else {
+            appData = tempAppData;
+            // حفظ نسخة محلية احتياطية
+            localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
+        }
 
-        // Fill lastSyncedData
-        Object.keys(tempAppData).forEach(col => {
-            tempAppData[col].forEach(item => {
+        // تحديث lastSyncedData
+        Object.keys(appData).forEach(col => {
+            (appData[col] || []).forEach(item => {
                 if (item && item.id) {
                     lastSyncedData[col][item.id] = JSON.stringify(item);
                 }
             });
         });
 
-        if (syncStatusUI) syncStatusUI.innerText = 'تم مزامنة البيانات مع السحابة';
-        const syncIndUI = document.getElementById('sync-indicator');
+        if (syncStatusUI) {
+            syncStatusUI.innerText = '✅ متزامن مع السحابة (' + new Date().toLocaleTimeString('ar-EG') + ')';
+            syncStatusUI.style.color = '';
+        }
         if (syncIndUI) syncIndUI.style.background = '#10b981';
 
         window.renderPage('dashboard');
         window.updateStatusBar();
+        console.log('✅ Firebase sync OK - إجمالي السجلات:', totalCloud);
 
     } catch (err) {
-        console.error("Firebase Initialization Error:", err);
-        if (syncStatusUI) syncStatusUI.innerText = 'تعذر الوصول للسحابة';
-        // Show visible error to user
-        alert("خطأ Firebase: " + err.message);
+        console.error("Firebase Sync Error:", err.code, err.message);
+
+        // تحميل من LocalStorage كـ fallback
+        const localData = localStorage.getItem('alkhair_app_data');
+        if (localData) {
+            try { appData = JSON.parse(localData); } catch(e) {}
+        }
+
+        if (err.code === 'permission-denied') {
+            if (syncStatusUI) {
+                syncStatusUI.innerText = '🔒 Firebase: يجب ضبط قواعد Firestore - انظر التعليمات';
+                syncStatusUI.style.color = '#e11d48';
+            }
+            if (syncIndUI) syncIndUI.style.background = '#e11d48';
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.error('🔒 FIRESTORE PERMISSION DENIED');
+            console.error('الحل: اذهب إلى Firebase Console > Firestore > Rules');
+            console.error('وضع هذه القاعدة:');
+            console.error('match /charities/global_shared_data/{document=**} {');
+            console.error('  allow read, write: if true;');
+            console.error('}');
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        } else {
+            if (syncStatusUI) {
+                syncStatusUI.innerText = '⚠️ تعذر الاتصال بالسحابة (محلي)';
+                syncStatusUI.style.color = '#f59e0b';
+            }
+            if (syncIndUI) syncIndUI.style.background = '#f59e0b';
+        }
+
+        window.renderPage('dashboard');
+        window.updateStatusBar();
     }
 
-    // --- REAL-TIME LISTENER (NO AUTH) ---
-    try {
-        window.db.collection('charities').doc('global_shared_data').onSnapshot((doc) => {
-            if (doc.exists) {
-                console.log("Remote update received via Snapshot");
-                if (document.getElementById('sync-status').innerText !== 'جاري الحفظ في السحابة...') {
-                    window.initFirebaseSync();
-                }
-            }
-        });
-    } catch (e) { console.error("Snapshot error", e); }
+    // --- مستمع real-time (يسجل مرة واحدة فقط) ---
+    if (!_snapshotListenerAttached && window.db) {
+        _snapshotListenerAttached = true;
+        try {
+            const charityRef = window.db.collection('charities').doc('global_shared_data');
+            // نستمع على كل المجموعات الفرعية
+            ['cases', 'donations', 'expenses', 'volunteers', 'affidavits', 'inventory'].forEach(col => {
+                charityRef.collection(col).onSnapshot((snapshot) => {
+                    if (!snapshot.metadata.hasPendingWrites && !snapshot.metadata.fromCache) {
+                        console.log(`🔄 تحديث مباشر: ${col} من جهاز آخر`);
+                        const syncEl = document.getElementById('sync-status');
+                        const isSaving = syncEl && syncEl.innerText.includes('جاري الحفظ');
+                        if (!isSaving) {
+                            // تأخير بسيط لتجميع التحديثات المتعددة
+                            clearTimeout(window._syncDebounce);
+                            window._syncDebounce = setTimeout(() => {
+                                window.initFirebaseSync();
+                            }, 1500);
+                        }
+                    }
+                }, (e) => {
+                    if (e.code !== 'permission-denied') {
+                        console.error(`Snapshot error (${col}):`, e.code);
+                    }
+                });
+            });
+            console.log('👂 Real-time listeners attached for all collections');
+        } catch (e) { console.error("Snapshot setup error", e); }
+    }
 };
 
 window.syncToFirestoreBackground = async () => {
-    if (!window.db || !currentUser) return;
+    if (!window.db) return; // ✅ لا يشترط تسجيل الدخول
     const syncStatusUI = document.getElementById('sync-status');
     const syncIndUI = document.getElementById('sync-indicator');
 
@@ -307,14 +374,22 @@ window.syncToFirestoreBackground = async () => {
         }
         if (promises.length > 0) {
             await Promise.all(promises);
+            console.log(`✅ تم رفع ${promises.length} تغيير إلى Firebase`);
+        } else {
+            console.log('ℹ️ لا توجد تغييرات جديدة للمزامنة');
         }
 
-        if (syncStatusUI) syncStatusUI.innerText = 'البيانات محفوظة بالسحابة';
+        if (syncStatusUI) syncStatusUI.innerText = '✅ البيانات محفوظة بالسحابة';
         if (syncIndUI) syncIndUI.style.background = '#10b981';
     } catch (err) {
         console.error("Firebase Sync error:", err);
-        if (syncStatusUI) syncStatusUI.innerText = 'خطأ في الحفظ!';
+        if (syncStatusUI) syncStatusUI.innerText = '❌ خطأ في الحفظ: ' + err.code;
         if (syncIndUI) syncIndUI.style.background = '#e11d48';
+        // عرض تفاصيل الخطأ
+        if (err.code === 'permission-denied') {
+            console.error('🔒 خطأ: قواعد Firestore ترفض الكتابة - راجع FIREBASE_GUIDE_AR.md');
+            if (syncStatusUI) syncStatusUI.innerText = '🔒 مرفوض - راجع قواعد Firestore';
+        }
     }
 };
 

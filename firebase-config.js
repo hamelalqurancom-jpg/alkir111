@@ -19,30 +19,23 @@ const cloudinaryConfig = {
 window.cloudinaryConfig = cloudinaryConfig;
 
 /**
- * --- قواعد حماية Firestore المقترحة ---
- * (يجب ضبطها في لوحة تحكم Firebase)
+ * --- قواعد حماية Firestore المطلوبة (وضع بدون حسابات) ---
+ * اذهب إلى Firebase Console > Firestore > Rules واكتب هذا:
  * 
+ * [نسخة مفتوحة - للاختبار فقط]
  * rules_version = '2';
  * service cloud.firestore {
  *   match /databases/{database}/documents {
- *     // قاعدة المزامنة المشتركة (بدون تسجيل دخول بالبريد)
- *     match /charities/shared_app_data/{document=**} {
- *       allow read, write: if request.auth != null;
- *     }
- *     // قاعدة الحسابات المسجلة
- *     match /charities/{charityId}/{document=**} {
- *       allow read, write: if request.auth != null && request.auth.uid == charityId;
+ *     match /charities/global_shared_data/{document=**} {
+ *       allow read, write: if true; // مفتوح للجميع - للاختبار فقط
  *     }
  *   }
  * }
  * 
- * --- ملاحظة حول النطاقات المسموحة (Authorized Domains) ---
- * يرجى التأكد من إضافة رابط موقعك في إعدادات Firebase Console:
- * 1. اذهب إلى Authentication -> Settings -> Authorized Domains
- * 2. أضف النطاقات التالية:
- *    - localhost (للتجربة المحلية)
- *    - m-lapan.github.io (أو رابط GitHub الخاص بك)
- *    - kkkkkkk-3185c.web.app
+ * الموعد النهائي: ستنتهي مدة allow read, write: if true
+ * لذلك خلال فترة الاختبار ضع الموعد لشهر من الآن
+ *
+ * [تنبيه]: لا تستخدم allow read, write: if true في الإنتاج
  */
 
 // تهيئة Firebase
