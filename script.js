@@ -3569,49 +3569,59 @@ window.lastGlobalFetchTime = 0;
 window.fetchAllCharitiesData = async () => {
     if (!window.db) return [];
     const now = Date.now();
-    // Cache for 5 minutes to balance freshness and performance
+    // Cache for 5 minutes
     if (window.allCharitiesDataCache && (now - window.lastGlobalFetchTime < 5 * 60 * 1000)) {
         return window.allCharitiesDataCache;
     }
 
     try {
-        // Fetch all registered charities info
+        // Step 1: Get all registered charities
         const charitiesSnapshot = await window.db.collection('charities').get();
-        const charitiesMap = {};
-        charitiesSnapshot.forEach(doc => {
-            charitiesMap[doc.id] = doc.data();
-        });
-
-        // Fetch all app_state docs across all charities
-        const stateSnapshot = await window.db.collectionGroup('data').get();
+        const myCharityId = localStorage.getItem('logged_charity_id');
         const globalData = [];
 
-        stateSnapshot.forEach(doc => {
-            const charityId = doc.ref.parent.parent.id;
-            // Skip searching in the currently logged-in charity
-            if (charityId === localStorage.getItem('logged_charity_id')) return;
-
-            const data = doc.data();
-            if (data.app_state && data.app_state.cases) {
-                const charityInfo = charitiesMap[charityId] || {};
-                globalData.push({
-                    charityId,
-                    charityName: charityInfo.charityName || 'جمعية غير معروفة',
-                    ownerName: charityInfo.ownerName || '-',
-                    ownerPhone: charityId, // Document ID is the phone number
-                    cases: data.app_state.cases
+        // Step 2: For each charity (except ours), fetch their app_state
+        const fetchPromises = [];
+        charitiesSnapshot.forEach(charityDoc => {
+            if (charityDoc.id === myCharityId) return; // Skip own charity
+            const charityInfo = charityDoc.data();
+            const fetchPromise = window.db
+                .collection('charities').doc(charityDoc.id)
+                .collection('data').doc('app_state')
+                .get()
+                .then(stateDoc => {
+                    if (stateDoc.exists) {
+                        const data = stateDoc.data();
+                        if (data.cases && data.cases.length > 0) {
+                            globalData.push({
+                                charityId: charityDoc.id,
+                                charityName: charityInfo.charityName || 'جمعية غير معروفة',
+                                ownerName: charityInfo.ownerName || '-',
+                                ownerPhone: charityInfo.phone || charityDoc.id,
+                                cases: data.cases
+                            });
+                        }
+                    }
+                })
+                .catch(err => {
+                    // Silently skip charities we can't read
+                    console.log(`Skipping charity ${charityDoc.id}:`, err.code);
                 });
-            }
+            fetchPromises.push(fetchPromise);
         });
+
+        await Promise.all(fetchPromises);
 
         window.allCharitiesDataCache = globalData;
         window.lastGlobalFetchTime = now;
+        console.log(`Global search: loaded ${globalData.length} other charities`);
         return globalData;
     } catch (err) {
         console.error("Global fetch error:", err);
         return [];
     }
 };
+
 
 window.globalSearchTimeout = null;
 
@@ -3692,7 +3702,7 @@ window.searchExistingCases = (field, val) => {
                 <div class="dropdown-item" style="border-right: 3px solid ${c.matchType === 'إفادة سابقة' ? '#faad14' : '#f5222d'};">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <strong>${c.name}</strong>
-                        <span style="font-size: 0.7rem; background: ${c.matchType === 'إfادة سابقة' ? '#fff7e6' : '#fff1f0'}; color: ${c.matchType === 'إفادة سابقة' ? '#d46b08' : '#cf1322'}; padding: 2px 5px; border-radius: 4px;">${c.matchType}</span>
+                        <span style="font-size: 0.7rem; background: ${c.matchType === 'إفادة سابقة' ? '#fff7e6' : '#fff1f0'}; color: ${c.matchType === 'إفادة سابقة' ? '#d46b08' : '#cf1322'}; padding: 2px 5px; border-radius: 4px;">${c.matchType}</span>
                     </div>
                     <span style="font-size: 0.75rem; color: #666;">القومي: ${c.nationalId || '-'} | العنوان: ${c.address || '-'} | الهاتف: ${c.phone || '-'}</span>
                 </div>
