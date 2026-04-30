@@ -1965,20 +1965,95 @@ window.closeCaseModal = () => {
     updateModalDocsPreview();
 };
 
+window.compressImage = (file, callback) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800;
+            const MAX_HEIGHT = 800;
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            callback(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
 window.triggerModalDocsUpload = () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
-    fileInput.onchange = (e) => {
+    fileInput.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            modalDocs.push(event.target.result);
-            updateModalDocsPreview();
-            saveData(); // Save to localStorage even during editing
-        };
-        reader.readAsDataURL(file);
+
+        if (window.cloudinaryConfig && window.cloudinaryConfig.cloudName !== "YOUR_CLOUD_NAME") {
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', window.cloudinaryConfig.uploadPreset);
+
+                // Try to find a save button or title to show loading state
+                const saveBtn = document.getElementById('modal-case-save-btn');
+                const originalBtnText = saveBtn ? saveBtn.innerText : '';
+                if (saveBtn) {
+                    saveBtn.innerText = 'جاري الرفع...';
+                    saveBtn.disabled = true;
+                }
+
+                const response = await fetch(`https://api.cloudinary.com/v1_1/${window.cloudinaryConfig.cloudName}/image/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.secure_url) {
+                    modalDocs.push(data.secure_url);
+                    updateModalDocsPreview();
+                    saveData();
+                } else {
+                    alert("فشل رفع الصورة: " + (data.error ? data.error.message : 'مجهول'));
+                }
+
+                if (saveBtn) {
+                    saveBtn.innerText = originalBtnText;
+                    saveBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error("Cloudinary upload error:", error);
+                alert("حدث خطأ أثناء الاتصال بخادم الصور.");
+                const saveBtn = document.getElementById('modal-case-save-btn');
+                if (saveBtn) {
+                    saveBtn.innerText = 'حفظ البيانات';
+                    saveBtn.disabled = false;
+                }
+            }
+        } else {
+            // Fallback to local compress
+            window.compressImage(file, (dataUrl) => {
+                modalDocs.push(dataUrl);
+                updateModalDocsPreview();
+                saveData(); // Save to localStorage even during editing
+            });
+        }
     };
     fileInput.click();
 };
@@ -3402,11 +3477,9 @@ fileInput.addEventListener('change', async (e) => {
 
     if (!window.cloudinaryConfig || window.cloudinaryConfig.cloudName === "YOUR_CLOUD_NAME") {
         console.warn("Cloudinary not configured. Falling back to Local Preview.");
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            updateCasePhoto(currentUploadCaseId, currentUploadType, event.target.result);
-        };
-        reader.readAsDataURL(file);
+        window.compressImage(file, (dataUrl) => {
+            updateCasePhoto(currentUploadCaseId, currentUploadType, dataUrl);
+        });
         return;
     }
 
