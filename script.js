@@ -2001,58 +2001,65 @@ window.triggerModalDocsUpload = () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
+    fileInput.multiple = true; // Allow selecting multiple photos
     fileInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
-        if (window.cloudinaryConfig && window.cloudinaryConfig.cloudName !== "YOUR_CLOUD_NAME") {
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('upload_preset', window.cloudinaryConfig.uploadPreset);
+        window.activeUploads = (window.activeUploads || 0) + files.length;
 
-                // Try to find a save button or title to show loading state
-                const saveBtn = document.getElementById('modal-case-save-btn');
-                const originalBtnText = saveBtn ? saveBtn.innerText : '';
-                if (saveBtn) {
-                    saveBtn.innerText = 'جاري الرفع...';
-                    saveBtn.disabled = true;
+        const saveBtn = document.getElementById('modal-case-save-btn');
+        const originalBtnText = saveBtn && !saveBtn.disabled ? saveBtn.innerText : 'حفظ البيانات';
+        if (saveBtn) {
+            saveBtn.innerText = `جاري رفع الصور (${files.length})...`;
+            saveBtn.disabled = true;
+        }
+
+        for (const file of files) {
+            if (window.cloudinaryConfig && window.cloudinaryConfig.cloudName !== "YOUR_CLOUD_NAME") {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('upload_preset', window.cloudinaryConfig.uploadPreset);
+
+                    const response = await fetch(`https://api.cloudinary.com/v1_1/${window.cloudinaryConfig.cloudName}/image/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    if (data.secure_url) {
+                        modalDocs.push(data.secure_url);
+                        updateModalDocsPreview();
+                        // Removed saveData() here. We save when case is finally saved.
+                    } else {
+                        alert("فشل رفع الصورة: " + (data.error ? data.error.message : 'مجهول'));
+                    }
+                } catch (error) {
+                    console.error("Cloudinary upload error:", error);
+                    alert("حدث خطأ أثناء الاتصال بخادم الصور.");
+                } finally {
+                    window.activeUploads--;
                 }
-
-                const response = await fetch(`https://api.cloudinary.com/v1_1/${window.cloudinaryConfig.cloudName}/image/upload`, {
-                    method: 'POST',
-                    body: formData
+            } else {
+                // Fallback to local compress
+                await new Promise((resolve) => {
+                    window.compressImage(file, (dataUrl) => {
+                        modalDocs.push(dataUrl);
+                        updateModalDocsPreview();
+                        window.activeUploads--;
+                        resolve();
+                    });
                 });
-
-                const data = await response.json();
-                if (data.secure_url) {
-                    modalDocs.push(data.secure_url);
-                    updateModalDocsPreview();
-                    saveData();
-                } else {
-                    alert("فشل رفع الصورة: " + (data.error ? data.error.message : 'مجهول'));
-                }
-
-                if (saveBtn) {
-                    saveBtn.innerText = originalBtnText;
-                    saveBtn.disabled = false;
-                }
-            } catch (error) {
-                console.error("Cloudinary upload error:", error);
-                alert("حدث خطأ أثناء الاتصال بخادم الصور.");
-                const saveBtn = document.getElementById('modal-case-save-btn');
-                if (saveBtn) {
-                    saveBtn.innerText = 'حفظ البيانات';
-                    saveBtn.disabled = false;
-                }
             }
-        } else {
-            // Fallback to local compress
-            window.compressImage(file, (dataUrl) => {
-                modalDocs.push(dataUrl);
-                updateModalDocsPreview();
-                saveData(); // Save to localStorage even during editing
-            });
+        }
+
+        if (window.activeUploads <= 0) {
+            window.activeUploads = 0;
+            if (saveBtn) {
+                saveBtn.innerText = originalBtnText;
+                saveBtn.disabled = false;
+            }
         }
     };
     fileInput.click();
@@ -2076,6 +2083,11 @@ window.removeModalDoc = (index) => {
 
 
 window.addNewCaseFromModal = () => {
+    if (window.activeUploads && window.activeUploads > 0) {
+        alert("يرجى الانتظار حتى يكتمل رفع جميع الصور...");
+        return;
+    }
+
     const searchNumber = document.getElementById('modal-case-search-number').value;
     const center = document.getElementById('modal-case-center').value;
     const name = document.getElementById('modal-case-name').value;
