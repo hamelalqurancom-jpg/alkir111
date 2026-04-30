@@ -795,6 +795,49 @@ body {
     background: #ecfdf5;
     color: #059669;
 }
+/* Splash Screen Styling */
+.splash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0f172a; /* Dark theme background */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999; /* Highest priority */
+    color: #f8fafc;
+    flex-direction: column;
+}
+
+.splash-content {
+    text-align: center;
+    animation: fadeIn 1s ease-in-out;
+}
+
+.splash-logo {
+    margin-bottom: 20px;
+}
+
+.splash-loader {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #334155;
+    border-top: 4px solid #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(-20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
 
 /* Login Styling */
 .login-overlay {
@@ -803,7 +846,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: #f3f2f1;
+    background: #0f172a;
     display: none;
     align-items: center;
     justify-content: center;
@@ -815,13 +858,15 @@ body {
 }
 
 .login-card {
-    background: white;
-    padding: 40px;
-    border-radius: 4px;
-    box-shadow: var(--shadow-sm);
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 0; /* padding is handled by children */
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     width: 100%;
-    max-width: 400px;
-    border-top: 4px solid var(--primary-color);
+    max-width: 450px;
+    border: 1px solid #334155;
+    overflow: hidden;
 }
 
 .login-header {
@@ -842,8 +887,22 @@ body {
 
 .login-body p {
     text-align: center;
-    color: var(--text-muted);
+    color: #cbd5e1 !important;
     margin-bottom: 20px;
+}
+
+.login-body .input-group input {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f8fafc;
+}
+
+.login-body .input-group input::placeholder {
+    color: #64748b;
+}
+
+.login-body .input-group i {
+    color: #94a3b8;
 }
 
 .input-group {
