@@ -795,6 +795,7 @@ body {
     background: #ecfdf5;
     color: #059669;
 }
+
 /* Splash Screen Styling */
 .splash-overlay {
     position: fixed;
@@ -802,11 +803,13 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: #0f172a; /* Dark theme background */
+    background: #0f172a;
+    /* Dark theme background */
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999; /* Highest priority */
+    z-index: 9999;
+    /* Highest priority */
     color: #f8fafc;
     flex-direction: column;
 }
@@ -831,12 +834,25 @@ body {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
+
 @keyframes fadeIn {
-    0% { opacity: 0; transform: translateY(-20px); }
-    100% { opacity: 1; transform: translateY(0); }
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Login Styling */
@@ -852,6 +868,7 @@ body {
     justify-content: center;
     z-index: 2000;
 }
+
 .login-overlay[style*="display: flex"],
 .login-overlay[style*="display:flex"] {
     display: flex !important;
@@ -860,7 +877,8 @@ body {
 .login-card {
     background: #1e293b;
     color: #f8fafc;
-    padding: 0; /* padding is handled by children */
+    padding: 0;
+    /* padding is handled by children */
     border-radius: 20px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     width: 100%;
@@ -1185,7 +1203,9 @@ body {
    MOBILE WALLET STYLE (Responsive Design)
 ============================================================ */
 @media (max-width: 1024px) {
-    html, body {
+
+    html,
+    body {
         overflow-x: hidden !important;
         max-width: 100vw !important;
         width: 100% !important;
@@ -1200,7 +1220,8 @@ body {
     }
 
     body {
-        background: #f4f5f7; /* Flat, clean background for mobile */
+        background: #f4f5f7;
+        /* Flat, clean background for mobile */
     }
 
     .app-container {
@@ -1221,15 +1242,16 @@ body {
         height: 70px;
         background: white;
         border-top: 1px solid var(--border-color);
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.08);
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.08);
         z-index: 2000;
         border-radius: 20px 20px 0 0;
         overflow-y: hidden;
         overflow-x: auto;
     }
 
-    .sidebar-header { 
-        display: none; /* Hide logo on bottom nav */
+    .sidebar-header {
+        display: none;
+        /* Hide logo on bottom nav */
     }
 
     .sidebar-nav {
@@ -1256,7 +1278,8 @@ body {
         margin: 0;
         gap: 4px;
         border-radius: 12px;
-        color: #94a3b8; /* Flat unselected color */
+        color: #94a3b8;
+        /* Flat unselected color */
     }
 
     .sidebar-nav li i {
@@ -1265,7 +1288,8 @@ body {
 
     .sidebar-nav li span {
         font-size: 0.65rem;
-        display: block; /* Show text compactly */
+        display: block;
+        /* Show text compactly */
         font-weight: 600;
     }
 
@@ -1294,22 +1318,27 @@ body {
     }
 
     .header-left span {
-        font-size: 0.95rem; /* Smaller title */
+        font-size: 0.95rem;
+        /* Smaller title */
         font-weight: 800;
     }
 
-    .header-left > span {
-        display: none; /* Hide the static title text on very small screens if it overflows, or just let it shrink */
+    .header-left>span {
+        display: none;
+        /* Hide the static title text on very small screens if it overflows, or just let it shrink */
     }
 
     #toggle-sidebar {
-        display: none !important; /* Not needed for bottom nav */
+        display: none !important;
+        /* Not needed for bottom nav */
     }
 
     .zoom-controls {
-        display: flex !important; /* Un-hide zoom on mobile */
+        display: flex !important;
+        /* Un-hide zoom on mobile */
         gap: 5px !important;
-        transform: scale(0.85); /* Make it fit */
+        transform: scale(0.85);
+        /* Make it fit */
         transform-origin: left center;
     }
 
@@ -1318,7 +1347,7 @@ body {
         padding: 6px 15px 6px 30px !important;
         font-size: 0.85rem !important;
     }
-    
+
     .search-box:focus-within {
         width: 180px !important;
         position: absolute;
@@ -1334,7 +1363,7 @@ body {
         overflow-x: hidden;
         box-sizing: border-box;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
         gap: 15px;
@@ -1343,7 +1372,8 @@ body {
 
     .stat-card {
         padding: 1.4rem;
-        border-radius: 24px; /* More rounded wallet feel */
+        border-radius: 24px;
+        /* More rounded wallet feel */
         gap: 15px;
         align-items: center;
         width: 100%;
@@ -1366,14 +1396,16 @@ body {
         gap: 10px;
         background: transparent;
         border-bottom: none;
-        padding-bottom: 20px; /* Space for scrollbar */
+        padding-bottom: 20px;
+        /* Space for scrollbar */
     }
 
     .ribbon-group {
         border-left: none;
-        border-right: 1px solid rgba(0,0,0,0.05);
+        border-right: 1px solid rgba(0, 0, 0, 0.05);
         padding: 0 10px;
     }
+
     .ribbon-group:first-child {
         border-right: none;
     }
@@ -1391,7 +1423,8 @@ body {
         border: none;
         box-shadow: none;
         border-radius: 0;
-        margin: 0 -10px; /* Bleed out */
+        margin: 0 -10px;
+        /* Bleed out */
         padding: 0 10px;
         width: 100vw;
         max-width: 100vw;
@@ -1400,7 +1433,8 @@ body {
     }
 
     .data-table {
-        min-width: 700px; /* Force scroll but smaller */
+        min-width: 700px;
+        /* Force scroll but smaller */
         width: 100%;
         max-width: none;
     }
@@ -1418,7 +1452,7 @@ body {
         margin: 0;
         transform: none !important;
     }
-    
+
     .modal-header {
         padding: 15px 20px;
         position: sticky;
@@ -1427,7 +1461,8 @@ body {
     }
 
     .status-bar {
-        bottom: 70px; /* Above bottom nav */
+        bottom: 70px;
+        /* Above bottom nav */
         border-radius: 12px 12px 0 0;
         margin: 0 10px;
         width: calc(100% - 20px);
@@ -1509,8 +1544,15 @@ body {
 }
 
 @keyframes fadeInPublic {
-    from { opacity: 0; transform: scale(0.98); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .case-info-public .info-item {
@@ -1519,7 +1561,7 @@ body {
     border-radius: 12px;
     border: 1px solid #f1f5f9;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .case-info-public .info-item:hover {
@@ -1555,20 +1597,20 @@ body {
 }
 
 .case-photos-public .photo-card:hover {
-    box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
 }
 
 .case-photos-public img {
     width: 100%;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transition: all 0.4s ease;
     cursor: pointer;
 }
 
 .case-photos-public img:hover {
     transform: scale(1.03);
-    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
 }
 
 .public-btn-home {
@@ -1594,7 +1636,7 @@ body {
 
 #qrcode-container img {
     border: 8px solid white;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     border-radius: 10px;
 }
 
@@ -1602,22 +1644,27 @@ body {
     #public-case-view {
         padding: 10px !important;
     }
-    #public-case-view > div {
+
+    #public-case-view>div {
         padding: 20px !important;
     }
-    #public-case-content > div {
+
+    #public-case-content>div {
         grid-template-columns: 1fr !important;
         gap: 20px !important;
     }
+
     .case-photos-public {
         order: -1;
         flex-direction: row !important;
         overflow-x: auto;
         padding-bottom: 10px;
     }
+
     .case-photos-public .photo-card {
         min-width: 200px;
     }
+
     .case-info-public .info-item {
         padding: 12px;
     }

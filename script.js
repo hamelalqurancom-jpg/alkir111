@@ -252,10 +252,13 @@ let directoryHandle = null;
 let syncTimeout = null;
 let lastSyncedData = { cases: {}, donations: {}, expenses: {}, volunteers: {}, affidavits: {}, inventory: {} };
 
+let modalDocs = [];
+let modalMembers = [];
+let modalPhotoUrl = "";
+let modalIdCardUrl = "";
 let editingCaseId = null;
 let editingDonationId = null;
 let editingAidId = null;
-let modalDocs = [];
 let selectedSponsorCases = [];
 let selectedBulkCases = [];
 
@@ -294,15 +297,41 @@ window.saveData = (writeToFile = true) => {
 };
 
 window.openCaseModal = () => {
-    const modalTitle = document.getElementById('modal-title');
-    const caseForm = document.getElementById('case-form');
+    const modalTitle = document.getElementById('modal-case-title'); // Fixed ID
     const modalCaseId = document.getElementById('modal-case-id');
     const caseModal = document.getElementById('case-modal');
 
     if (modalTitle) modalTitle.innerText = 'إضافة حالة جديدة';
-    if (caseForm) caseForm.reset();
-    if (modalCaseId) modalCaseId.value = '';
+
+    // Clear all inputs in modal manually since it's not a form
+    const inputs = document.querySelectorAll('#case-modal input, #case-modal textarea, #case-modal select');
+    inputs.forEach(i => {
+        if (i.type === 'checkbox') i.checked = false;
+        else i.value = '';
+    });
+
+    modalDocs = [];
+    modalMembers = [];
+    modalPhotoUrl = "";
+    modalIdCardUrl = "";
+    window.updateModalDocsPreview();
+    window.updateModalMembersPreview();
+
     if (caseModal) caseModal.style.display = 'flex';
+};
+
+window.closeCaseModal = () => {
+    const caseModal = document.getElementById('case-modal');
+    if (caseModal) caseModal.style.display = 'none';
+    editingCaseId = null;
+};
+
+
+
+window.removeModalPrimaryDoc = (type) => {
+    if (type === 'photo') modalPhotoUrl = "";
+    if (type === 'idCard') modalIdCardUrl = "";
+    window.updateModalDocsPreview();
 };
 
 window.exportToExcel = () => {
@@ -460,14 +489,29 @@ window.renderPublicCase = (caseId) => {
 
                 <div class="case-photos-public" style="display: flex; flex-direction: column; gap: 20px;">
                     <h4 style="color: #3730a3; border-bottom: 1px solid #eee; padding-bottom: 10px;"><i class="fas fa-images"></i> الوثائق المرفقة</h4>
+                    
+                    ${c.photoUrl ? `
                     <div style="border: 1px solid #eee; padding: 10px; border-radius: 10px; text-align: center;">
                         <span style="font-size:0.8rem; color:#666; display:block; margin-bottom:5px;">صورة الحالة</span>
-                        ${c.photoUrl ? `<img src="${c.photoUrl}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${c.photoUrl}')">` : '<div style="height:150px; background:#f5f5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#ccc;"><i class="fas fa-camera fa-2x"></i></div>'}
-                    </div>
+                        <img src="${c.photoUrl}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${c.photoUrl}')">
+                    </div>` : ''}
+
+                    ${c.idCardUrl ? `
                     <div style="border: 1px solid #eee; padding: 10px; border-radius: 10px; text-align: center;">
                         <span style="font-size:0.8rem; color:#666; display:block; margin-bottom:5px;">صورة البطاقة</span>
-                        ${c.idCardUrl ? `<img src="${c.idCardUrl}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${c.idCardUrl}')">` : '<div style="height:150px; background:#f5f5f5; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#ccc;"><i class="fas fa-id-card fa-2x"></i></div>'}
-                    </div>
+                        <img src="${c.idCardUrl}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${c.idCardUrl}')">
+                    </div>` : ''}
+
+                    ${(c.docs && c.docs.length > 0) ? c.docs.map(doc => {
+            const url = typeof doc === 'string' ? doc : doc.url;
+            const label = typeof doc === 'object' && doc.label ? doc.label : 'وثيقة إضافية';
+            return `
+                            <div style="border: 1px solid #eee; padding: 10px; border-radius: 10px; text-align: center;">
+                                <span style="font-size:0.8rem; color:#666; display:block; margin-bottom:5px;">${label}</span>
+                                <img src="${url}" style="width:100%; border-radius:8px; border:1px solid #ddd; cursor:pointer;" onclick="openImageViewer('${url}')">
+                            </div>
+                        `;
+        }).join('') : (!c.photoUrl && !c.idCardUrl ? '<p style="color:#ccc; text-align:center;">لا توجد وثائق مرفقة</p>' : '')}
                 </div>
             </div>
         `;
@@ -568,6 +612,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const loggedCharityId = localStorage.getItem('logged_charity_id');
         const loggedCharityName = localStorage.getItem('logged_charity_name');
 
+        if (splashScreen) splashScreen.style.display = 'flex';
+
         if (loggedCharityId && loggedCharityName) {
             // Load charity-specific data first
             const charityData = localStorage.getItem('alkhair_data_' + loggedCharityId);
@@ -576,15 +622,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             window.updateAppBranding(loggedCharityName);
             if (authScreen) authScreen.style.display = 'none';
-            if (mainApp) mainApp.style.display = 'flex';
-            window.hideSplash();
-            window.initCharitySync(loggedCharityId);
-            if (typeof window.renderPage === 'function') {
-                window.renderPage('dashboard');
-            }
+
+            setTimeout(() => {
+                window.hideSplash();
+                if (mainApp) mainApp.style.display = 'flex';
+                window.initCharitySync(loggedCharityId);
+                if (typeof window.renderPage === 'function') {
+                    window.renderPage('dashboard');
+                }
+            }, 2000);
         } else {
             // Show splash then auth
-            if (splashScreen) splashScreen.style.display = 'flex';
             setTimeout(() => {
                 window.hideSplash();
                 if (authScreen) authScreen.style.display = 'flex';
@@ -636,6 +684,13 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebarItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const page = item.getAttribute('data-page');
+                    if (page === 'master') {
+                        const pass = prompt('أدخل كلمة مرور الإدارة (الماستر):');
+                        if (pass !== '1111') {
+                            alert('كلمة المرور غير صحيحة!');
+                            return;
+                        }
+                    }
                     if (page === 'expenses') window.expensesUnlocked = true;
                     sidebarItems.forEach(i => i.classList.remove('active'));
                     item.classList.add('active');
@@ -674,6 +729,22 @@ window.renderPage = (page, contextId = null) => {
 
     let html = '';
     switch (page) {
+        case 'master':
+            pageTitle.innerText = 'لوحة تحكم الإدارة (الماستر)';
+            html = `
+                <div class="card">
+                    <div class="card-header" style="background: #fef2f2; border-bottom: 2px solid #fca5a5;">
+                        <h2 style="color: #ef4444;"><i class="fas fa-crown"></i> إدارة الجمعيات المسجلة (الماستر)</h2>
+                        <button class="btn-primary" onclick="window.loadAllCharitiesForMaster()"><i class="fas fa-sync-alt"></i> تحديث القائمة</button>
+                    </div>
+                    <div id="master-charities-list" style="padding: 20px;">
+                        <div style="text-align:center; color:#666;">جاري تحميل البيانات...</div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => window.loadAllCharitiesForMaster(), 100);
+            break;
+
         case 'dashboard':
             pageTitle.innerText = 'لوحة التحكم - ملخص عام';
             const catStats = {};
@@ -1138,12 +1209,17 @@ window.renderPage = (page, contextId = null) => {
                                                             <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
                                                                 <span style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 5px; color: #666;">مرفقات إضافية:</span>
                                                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                                                    ${c.docs.map((doc, dIdx) => `
-                                                                        <div style="position: relative;">
-                                                                            <img src="${doc}" style="width: 100%; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; cursor: pointer;" onclick="event.stopPropagation(); openImageViewer('${doc}')">
-                                                                            <i class="fas fa-times-circle" style="position: absolute; top: -5px; right: -5px; color: #e11d48; cursor: pointer; background: white; border-radius: 50%; font-size: 0.8rem;" onclick="event.stopPropagation(); removeCaseDoc(${c.id}, ${dIdx})"></i>
-                                                                        </div>
-                                                                    `).join('')}
+                                                                    ${c.docs.map((doc, dIdx) => {
+                const url = typeof doc === 'string' ? doc : doc.url;
+                const label = typeof doc === 'object' && doc.label ? doc.label : '';
+                return `
+                                                                            <div style="position: relative; text-align: center;">
+                                                                                <img src="${url}" style="width: 100%; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; cursor: pointer;" onclick="event.stopPropagation(); openImageViewer('${url}')">
+                                                                                ${label ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: white; font-size: 0.5rem; padding: 1px;">${label}</div>` : ''}
+                                                                                <i class="fas fa-times-circle" style="position: absolute; top: -5px; right: -5px; color: #e11d48; cursor: pointer; background: white; border-radius: 50%; font-size: 0.8rem;" onclick="event.stopPropagation(); removeCaseDoc(${c.id}, ${dIdx})"></i>
+                                                                            </div>
+                                                                        `;
+            }).join('')}
                                                                 </div>
                                                             </div>
                                                         ` : ''}
@@ -1929,6 +2005,190 @@ window.renderPage = (page, contextId = null) => {
     }
 }
 
+// --- MASTER PANEL FUNCTIONS ---
+window.loadAllCharitiesForMaster = async () => {
+    const container = document.getElementById('master-charities-list');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center; padding: 50px;"><i class="fas fa-spinner fa-spin fa-3x" style="color:#ef4444;"></i><p style="margin-top:10px;">جاري جلب الجمعيات من السحابة...</p></div>';
+
+    try {
+        if (!window.db) throw new Error('لا يوجد اتصال بقاعدة البيانات (وضع الأوفلاين)');
+
+        const snapshot = await window.db.collection('charities').get();
+        let html = `
+            <table class="data-table">
+                <thead>
+                    <tr style="background:#fee2e2;">
+                        <th>رقم الهاتف (المعرف)</th>
+                        <th>اسم الجمعية</th>
+                        <th>صاحب الجمعية</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        if (snapshot.empty) {
+            html += '<tr><td colspan="5" style="text-align:center; color:#999;">لا توجد أي جمعيات مسجلة في النظام بعد</td></tr>';
+        } else {
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+
+                let dateStr = '-';
+                if (data.createdAt && data.createdAt.toDate) {
+                    try { dateStr = data.createdAt.toDate().toLocaleDateString('ar-EG'); } catch (e) { }
+                }
+
+                html += `
+                    <tr>
+                        <td style="font-weight:800; font-family:monospace; color:#ef4444; direction:ltr;">${id}</td>
+                        <td style="font-weight:bold; color:#1d4ed8; font-size:1.1rem;">${data.charityName || '-'}</td>
+                        <td>${data.ownerName || '-'}</td>
+                        <td>${dateStr}</td>
+                        <td>
+                            <div style="display: flex; gap: 10px; justify-content: center;">
+                                <button class="btn-primary" style="padding:5px 10px; font-size:0.85rem; background:#8b5cf6;" onclick="viewCharityCasesMaster('${id}', '${(data.charityName || '').replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-eye"></i> عرض الحالات
+                                </button>
+                                <button class="btn-primary" style="padding:5px 10px; font-size:0.85rem; background:#3b82f6;" onclick="editCharityName('${id}', '${(data.charityName || '').replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-edit"></i> تعديل
+                                </button>
+                                <button class="btn-primary" style="padding:5px 10px; font-size:0.85rem; background:#ef4444;" onclick="deleteCharity('${id}')">
+                                    <i class="fas fa-trash-alt"></i> حذف
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = `<div style="text-align:center; color:#ef4444; padding:20px; font-weight:bold;">خطأ: ${err.message}</div>`;
+    }
+};
+
+window.editCharityName = async (id, oldName) => {
+    const newName = prompt('أدخل اسم الجمعية الجديد:', oldName);
+    if (newName && newName.trim() !== '' && newName !== oldName) {
+        try {
+            await window.db.collection('charities').doc(id).update({
+                charityName: newName.trim()
+            });
+            alert('تم تحديث اسم الجمعية بنجاح!');
+            window.loadAllCharitiesForMaster();
+
+            // If the admin is editing their own charity name, update UI
+            if (id === localStorage.getItem('logged_charity_id')) {
+                localStorage.setItem('logged_charity_name', newName.trim());
+                window.updateAppBranding(newName.trim());
+            }
+        } catch (err) {
+            alert('خطأ أثناء التحديث: ' + err.message);
+        }
+    }
+};
+
+window.deleteCharity = async (id) => {
+    if (confirm(`هل أنت متأكد من حذف الجمعية التي رقمها ${id}؟ هذا سيمنعهم من تسجيل الدخول.`)) {
+        const pass = prompt('الرجاء تأكيد الإجراء بإدخال كلمة مرور الماستر:');
+        if (pass !== '1111') {
+            alert('كلمة المرور غير صحيحة! تم إلغاء الحذف.');
+            return;
+        }
+        try {
+            await window.db.collection('charities').doc(id).delete();
+            alert('تم حذف الجمعية بنجاح.');
+            window.loadAllCharitiesForMaster();
+
+            // If the admin deleted themselves, log them out
+            if (id === localStorage.getItem('logged_charity_id')) {
+                window.logoutApp();
+            }
+        } catch (err) {
+            alert('خطأ أثناء الحذف: ' + err.message);
+        }
+    }
+};
+
+window.viewCharityCasesMaster = async (id, name) => {
+    const container = document.getElementById('master-charities-list');
+    if (!container) return;
+
+    container.innerHTML = `<div style="text-align:center; padding: 50px;"><i class="fas fa-spinner fa-spin fa-3x" style="color:#8b5cf6;"></i><p style="margin-top:10px;">جاري جلب حالات ${name}...</p></div>`;
+
+    try {
+        const doc = await window.db.collection('charities').doc(id).collection('data').doc('app_state').get();
+        if (!doc.exists) {
+            container.innerHTML = `
+                <div style="margin-bottom: 15px;">
+                    <button class="btn-secondary" onclick="window.loadAllCharitiesForMaster()"><i class="fas fa-arrow-right"></i> العودة لقائمة الجمعيات</button>
+                </div>
+                <div style="text-align:center; padding: 30px; color:#666; font-weight:bold; font-size:1.1rem;">لا توجد أي بيانات مسجلة في قاعدة بيانات هذه الجمعية بعد.</div>
+            `;
+            return;
+        }
+
+        const data = doc.data();
+        const cases = data.cases || [];
+
+        let html = `
+            <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #e2e8f0;">
+                <button class="btn-secondary" onclick="window.loadAllCharitiesForMaster()"><i class="fas fa-arrow-right"></i> العودة لقائمة الجمعيات</button>
+                <h3 style="color:#3730a3; margin:0;"><i class="fas fa-users"></i> حالات جمعية: ${name} <span style="background:#e0e7ff; color:#3730a3; padding:2px 10px; border-radius:15px; font-size:0.9rem;">(${cases.length} حالة)</span></h3>
+            </div>
+            <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr style="background:#e0e7ff;">
+                        <th>م</th>
+                        <th>رقم البحث</th>
+                        <th>الاسم</th>
+                        <th>الرقم القومي</th>
+                        <th>الوضع</th>
+                        <th>التصنيف</th>
+                        <th>الهاتف</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        if (cases.length === 0) {
+            html += '<tr><td colspan="7" style="text-align:center; padding:30px; color:#999;">الجمعية لم تقم بتسجيل أي حالات حتى الآن.</td></tr>';
+        } else {
+            cases.forEach((c, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td style="font-weight:bold; color:#e11d48;">${c.searchNumber || '-'}</td>
+                        <td style="font-weight:bold; color:#3730a3; font-size:1.05rem;">${c.name || '-'}</td>
+                        <td style="font-family:monospace; color:#2563eb;">${c.nationalId || '-'}</td>
+                        <td style="color:#059669;">${c.socialStatus || '-'}</td>
+                        <td><span class="status-badge" style="background:#fce7f3; color:#be185d;">${c.type || '-'}</span></td>
+                        <td style="font-weight:bold;">${c.phone || '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = `
+            <div style="margin-bottom: 15px;">
+                <button class="btn-secondary" onclick="window.loadAllCharitiesForMaster()"><i class="fas fa-arrow-right"></i> العودة لقائمة الجمعيات</button>
+            </div>
+            <div style="text-align:center; color:#ef4444; padding:20px; font-weight:bold; background:#fee2e2; border-radius:8px;">خطأ في جلب الحالات: ${err.message}</div>
+        `;
+    }
+};
+
 // --- CASE MODAL ACTIONS ---
 window.openCaseModal = () => {
     document.getElementById('case-modal').style.display = 'flex';
@@ -2068,17 +2328,188 @@ window.triggerModalDocsUpload = () => {
 window.updateModalDocsPreview = () => {
     const previewDiv = document.getElementById('modal-docs-preview');
     if (!previewDiv) return;
-    previewDiv.innerHTML = modalDocs.map((url, index) => `
-            <div style="position: relative; width: 100px; height: 100px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white;">
+
+    let html = "";
+
+    // Show primary photo if exists
+    if (modalPhotoUrl) {
+        html += `
+            <div style="position: relative; width: 100px; height: 100px; border: 2px solid #6366f1; border-radius: 4px; overflow: hidden; background: white; flex-shrink: 0;">
+                <img src="${modalPhotoUrl}" style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" onclick="openImageViewer('${modalPhotoUrl}')">
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; background: #6366f1; color: white; font-size: 0.5rem; text-align: center; padding: 2px;">صورة شخصية</div>
+                <i class="fas fa-times-circle" style="position: absolute; top: 2px; right: 2px; color: #e11d48; cursor: pointer; background: white; border-radius: 50%;" onclick="window.removeModalPrimaryDoc('photo')"></i>
+            </div>
+        `;
+    }
+
+    // Show ID card if exists
+    if (modalIdCardUrl) {
+        html += `
+            <div style="position: relative; width: 100px; height: 100px; border: 2px solid #ec4899; border-radius: 4px; overflow: hidden; background: white; flex-shrink: 0;">
+                <img src="${modalIdCardUrl}" style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" onclick="openImageViewer('${modalIdCardUrl}')">
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; background: #ec4899; color: white; font-size: 0.5rem; text-align: center; padding: 2px;">صورة البطاقة</div>
+                <i class="fas fa-times-circle" style="position: absolute; top: 2px; right: 2px; color: #e11d48; cursor: pointer; background: white; border-radius: 50%;" onclick="window.removeModalPrimaryDoc('idCard')"></i>
+            </div>
+        `;
+    }
+
+    html += modalDocs.map((doc, index) => {
+        const url = typeof doc === 'string' ? doc : doc.url;
+        const label = typeof doc === 'object' && doc.label ? doc.label : '';
+
+        return `
+            <div style="position: relative; width: 100px; height: 100px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: white; flex-shrink: 0;">
                 <img src="${url}" style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" onclick="openImageViewer('${url}')">
+                ${label ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: white; font-size: 0.65rem; padding: 2px; text-align: center;">${label}</div>` : ''}
                 <i class="fas fa-times-circle" style="position: absolute; top: 2px; right: 2px; color: #e11d48; cursor: pointer; background: white; border-radius: 50%; font-size: 1.1rem;" onclick="removeModalDoc(${index})"></i>
             </div>
-        `).join('');
+        `;
+    }).join('');
+
+    // Update primary placeholders
+    const photoPlaceholder = document.getElementById('modal-photo-placeholder');
+    const idPlaceholder = document.getElementById('modal-id-placeholder');
+
+    if (photoPlaceholder) {
+        if (modalPhotoUrl) {
+            photoPlaceholder.innerHTML = `<img src="${modalPhotoUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;">`;
+            photoPlaceholder.style.border = "2px solid #6366f1";
+        } else {
+            photoPlaceholder.innerHTML = `<i class="fas fa-camera" style="font-size: 2rem; color: #ccc;"></i><span style="font-size: 0.75rem; color: #999; margin-top: 5px;">صورة الحالة</span>`;
+            photoPlaceholder.style.border = "2px dashed #ccc";
+        }
+    }
+
+    if (idPlaceholder) {
+        if (modalIdCardUrl) {
+            idPlaceholder.innerHTML = `<img src="${modalIdCardUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px;">`;
+            idPlaceholder.style.border = "2px solid #ec4899";
+        } else {
+            idPlaceholder.innerHTML = `<i class="fas fa-id-card" style="font-size: 2rem; color: #ccc;"></i><span style="font-size: 0.75rem; color: #999; margin-top: 5px;">صورة البطاقة</span>`;
+            idPlaceholder.style.border = "2px dashed #ccc";
+        }
+    }
+
+    previewDiv.innerHTML = html;
 };
 
 window.removeModalDoc = (index) => {
     modalDocs.splice(index, 1);
     updateModalDocsPreview();
+};
+
+window.updateModalMembersPreview = () => {
+    const container = document.getElementById('modal-members-container');
+    const previewDiv = document.getElementById('modal-members-preview');
+    if (!previewDiv || !container) return;
+
+    if (modalMembers.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    previewDiv.innerHTML = `
+        <table class="data-table" style="width: 100%; font-size: 0.85rem; border: 1px solid #eee;">
+            <thead>
+                <tr style="background: #f8fafc;">
+                    <th>الاسم</th>
+                    <th>الرقم القومي</th>
+                    <th>الصلة</th>
+                    <th>السن</th>
+                    <th>حذف</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${modalMembers.map((m, index) => `
+                    <tr>
+                        <td>${m.name}</td>
+                        <td>${m.idNo}</td>
+                        <td>${m.relation}</td>
+                        <td>${m.age}</td>
+                        <td style="text-align: center;">
+                            <i class="fas fa-trash-alt" style="color: #e11d48; cursor: pointer;" onclick="removeModalMember(${index})"></i>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+};
+
+window.removeModalMember = (index) => {
+    modalMembers.splice(index, 1);
+    updateModalMembersPreview();
+};
+
+window.openMemberModalForNewCase = () => {
+    const modal = document.getElementById('member-modal');
+    if (!modal) return;
+
+    // Set target case ID to "NEW" to indicate we're adding to pending modalMembers
+    document.getElementById('target-case-id').value = 'NEW';
+    document.getElementById('target-case-name').innerText = 'الحالة الحالية';
+
+    // Clear inputs (except hidden case ID)
+    modal.querySelectorAll('input:not([type="hidden"])').forEach(i => i.value = '');
+
+    modal.style.display = 'flex';
+};
+
+window.triggerSpecificModalDocUpload = (label) => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const saveBtn = document.getElementById('modal-case-save-btn');
+        const originalBtnText = saveBtn ? saveBtn.innerText : 'حفظ البيانات';
+        if (saveBtn) {
+            saveBtn.innerText = `جاري رفع ${label}...`;
+            saveBtn.disabled = true;
+        }
+
+        try {
+            let resultUrl = "";
+            if (window.cloudinaryConfig && window.cloudinaryConfig.cloudName !== "YOUR_CLOUD_NAME") {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', window.cloudinaryConfig.uploadPreset);
+                const response = await fetch(`https://api.cloudinary.com/v1_1/${window.cloudinaryConfig.cloudName}/image/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                resultUrl = data.secure_url;
+            } else {
+                resultUrl = await new Promise(resolve => window.compressImage(file, resolve));
+            }
+
+            if (resultUrl) {
+                // Handle primary photos specially
+                if (label === 'صورة شخصية' || label === 'صورة الحالة') {
+                    modalPhotoUrl = resultUrl;
+                } else if (label === 'صورة البطاقة' || label === 'شهادة ميلاد') {
+                    modalIdCardUrl = resultUrl;
+                } else {
+                    // Add with label to additional docs
+                    modalDocs.push({ url: resultUrl, label: label });
+                }
+                updateModalDocsPreview();
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert(`فشل رفع ${label}`);
+        } finally {
+            if (saveBtn) {
+                saveBtn.innerText = originalBtnText;
+                saveBtn.disabled = false;
+            }
+        }
+    };
+    fileInput.click();
 };
 
 
@@ -2143,6 +2574,9 @@ window.addNewCaseFromModal = () => {
                     searchNumber, center, name, nationalId, job, phone, spouseName, spouseId, spousePhone,
                     familyMembers, socialStatus, type, amount, source, address, note, isExceptional,
                     docs: modalDocs,
+                    photoUrl: modalPhotoUrl || appData.cases[idx].photoUrl,
+                    idCardUrl: modalIdCardUrl || appData.cases[idx].idCardUrl,
+                    members: modalMembers || [],
                     date: dateInput || appData.cases[idx].date
                 };
             }
@@ -2153,9 +2587,11 @@ window.addNewCaseFromModal = () => {
                 searchNumber, center, name, nationalId, job, phone, spouseName, spouseId, spousePhone,
                 familyMembers, socialStatus, type, amount, source, address, note, isExceptional,
                 docs: modalDocs,
+                photoUrl: modalPhotoUrl,
+                idCardUrl: modalIdCardUrl,
                 status: 'قيد الدراسة',
                 date: dateInput || new Date().toISOString().split('T')[0],
-                members: [],
+                members: modalMembers || [],
                 aidHistory: []
             };
             appData.cases.push(newCase);
@@ -2187,6 +2623,13 @@ window.prepareEditCase = (id) => {
     document.getElementById('modal-case-social').value = c.socialStatus || '';
     document.getElementById('modal-case-amount').value = c.amount || '';
     document.getElementById('modal-case-source').value = c.source || '';
+
+    modalDocs = c.docs ? [...c.docs] : [];
+    modalMembers = c.members ? [...c.members] : [];
+    modalPhotoUrl = c.photoUrl || "";
+    modalIdCardUrl = c.idCardUrl || "";
+    window.updateModalDocsPreview();
+    window.updateModalMembersPreview();
     document.getElementById('modal-case-date').value = c.date || '';
     document.getElementById('modal-case-address').value = c.address || '';
     document.getElementById('modal-case-note').value = c.note || '';
@@ -3118,7 +3561,62 @@ window.updateSelectedSponsorCasesUI = () => {
         `).join('');
 };
 
+
+// --- GLOBAL CROSS-CHARITY SEARCH LOGIC ---
+window.allCharitiesDataCache = null;
+window.lastGlobalFetchTime = 0;
+
+window.fetchAllCharitiesData = async () => {
+    if (!window.db) return [];
+    const now = Date.now();
+    // Cache for 5 minutes to balance freshness and performance
+    if (window.allCharitiesDataCache && (now - window.lastGlobalFetchTime < 5 * 60 * 1000)) {
+        return window.allCharitiesDataCache;
+    }
+
+    try {
+        // Fetch all registered charities info
+        const charitiesSnapshot = await window.db.collection('charities').get();
+        const charitiesMap = {};
+        charitiesSnapshot.forEach(doc => {
+            charitiesMap[doc.id] = doc.data();
+        });
+
+        // Fetch all app_state docs across all charities
+        const stateSnapshot = await window.db.collectionGroup('data').get();
+        const globalData = [];
+
+        stateSnapshot.forEach(doc => {
+            const charityId = doc.ref.parent.parent.id;
+            // Skip searching in the currently logged-in charity
+            if (charityId === localStorage.getItem('logged_charity_id')) return;
+
+            const data = doc.data();
+            if (data.app_state && data.app_state.cases) {
+                const charityInfo = charitiesMap[charityId] || {};
+                globalData.push({
+                    charityId,
+                    charityName: charityInfo.charityName || 'جمعية غير معروفة',
+                    ownerName: charityInfo.ownerName || '-',
+                    ownerPhone: charityId, // Document ID is the phone number
+                    cases: data.app_state.cases
+                });
+            }
+        });
+
+        window.allCharitiesDataCache = globalData;
+        window.lastGlobalFetchTime = now;
+        return globalData;
+    } catch (err) {
+        console.error("Global fetch error:", err);
+        return [];
+    }
+};
+
+window.globalSearchTimeout = null;
+
 window.searchExistingCases = (field, val) => {
+
     const fieldMap = {
         'name': 'case-name-results',
         'nationalId': 'case-id-results',
@@ -3194,7 +3692,7 @@ window.searchExistingCases = (field, val) => {
                 <div class="dropdown-item" style="border-right: 3px solid ${c.matchType === 'إفادة سابقة' ? '#faad14' : '#f5222d'};">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <strong>${c.name}</strong>
-                        <span style="font-size: 0.7rem; background: ${c.matchType === 'إفادة سابقة' ? '#fff7e6' : '#fff1f0'}; color: ${c.matchType === 'إفادة سابقة' ? '#d46b08' : '#cf1322'}; padding: 2px 5px; border-radius: 4px;">${c.matchType}</span>
+                        <span style="font-size: 0.7rem; background: ${c.matchType === 'إfادة سابقة' ? '#fff7e6' : '#fff1f0'}; color: ${c.matchType === 'إفادة سابقة' ? '#d46b08' : '#cf1322'}; padding: 2px 5px; border-radius: 4px;">${c.matchType}</span>
                     </div>
                     <span style="font-size: 0.75rem; color: #666;">القومي: ${c.nationalId || '-'} | العنوان: ${c.address || '-'} | الهاتف: ${c.phone || '-'}</span>
                 </div>
@@ -3203,7 +3701,94 @@ window.searchExistingCases = (field, val) => {
     } else {
         resultsDiv.style.display = 'none';
     }
+
+    // --- TRIGGER GLOBAL CROSS-CHECK (Debounced) ---
+    if (window.globalSearchTimeout) clearTimeout(window.globalSearchTimeout);
+
+    // Only search globally for Name or National ID with sufficient length
+    if ((field === 'name' && val.length >= 3) || (field === 'nationalId' && val.length >= 4)) {
+        window.globalSearchTimeout = setTimeout(async () => {
+            const loaderId = `global-loader-${field}`;
+            // Append loader if not exists
+            if (!document.getElementById(loaderId)) {
+                resultsDiv.innerHTML += `
+                    <div id="${loaderId}" style="padding: 10px; background: #f0f5ff; border-top: 1px solid #adc6ff; font-size: 0.8rem; color: #2f54eb; text-align: center;">
+                        <i class="fas fa-spinner fa-spin"></i> جاري التحقق من الجمعيات الأخرى...
+                    </div>
+                `;
+                resultsDiv.style.display = 'block';
+            }
+
+            try {
+                const globalCharities = await window.fetchAllCharitiesData();
+                const qNormalized = window.normalizeArabic(val);
+                const qRaw = val.toLowerCase();
+
+                const globalMatches = [];
+                globalCharities.forEach(charity => {
+                    charity.cases.forEach(c => {
+                        let isMatch = false;
+                        if (field === 'name') {
+                            isMatch = window.normalizeArabic(c.name || '').includes(qNormalized);
+                        } else if (field === 'nationalId') {
+                            isMatch = (c.nationalId || '').includes(qRaw);
+                        }
+
+                        if (isMatch) {
+                            globalMatches.push({
+                                ...c,
+                                charityName: charity.charityName,
+                                ownerName: charity.ownerName,
+                                ownerPhone: charity.ownerPhone
+                            });
+                        }
+                    });
+                });
+
+                // Remove loader
+                const loader = document.getElementById(loaderId);
+                if (loader) loader.remove();
+
+                if (globalMatches.length > 0) {
+                    // Filter out duplicates (already shown in local results)
+                    const filteredGlobal = globalMatches.filter(gm =>
+                        !matches.some(m => m.nationalId === gm.nationalId && m.name === gm.name)
+                    );
+
+                    if (filteredGlobal.length > 0) {
+                        resultsDiv.innerHTML += `
+                            <div style="padding: 10px; background: #fff7e6; border-top: 2px solid #ffa940; font-size: 0.85rem; color: #d46b08; font-weight: bold; margin-top: 5px;">
+                                <i class="fas fa-globe"></i> وُجدت في جمعيات أخرى (${filteredGlobal.length}):
+                            </div>
+                        ` + filteredGlobal.slice(0, 5).map(c => `
+                            <div class="dropdown-item" style="background: #fffbe6; border-right: 4px solid #faad14; border-bottom: 1px solid #ffe58f;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <strong style="color: #d46b08; font-size: 1rem;">${c.name}</strong>
+                                    <span style="font-size: 0.7rem; background: #faad14; color: #fff; padding: 2px 5px; border-radius: 4px; font-weight: bold;">تنبيه: مسجل طرف آخر</span>
+                                </div>
+                                <div style="font-size: 0.85rem; font-weight: 800; color: #1d4ed8; margin: 5px 0;">
+                                    باسم: ${c.charityName}
+                                </div>
+                                <div style="font-size: 0.8rem; color: #444; background: white; padding: 5px; border-radius: 4px; border: 1px solid #ffe58f;">
+                                    <i class="fas fa-user-tie"></i> صاحب الجمعية: <strong>${c.ownerName}</strong><br>
+                                    <i class="fas fa-phone-alt"></i> للتواصل: <a href="tel:${c.ownerPhone}" style="color: #1d4ed8; font-weight: 800;">${c.ownerPhone}</a>
+                                </div>
+                                <div style="font-size: 0.7rem; color: #888; margin-top: 5px;">
+                                    القومي: ${c.nationalId || '-'} | العنوان: ${c.address || '-'}
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                const loader = document.getElementById(loaderId);
+                if (loader) loader.innerHTML = `<span style="color: #f5222d;">فشل البحث العالمي</span>`;
+            }
+        }, 600); // 600ms debounce
+    }
 };
+
 
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
@@ -3374,13 +3959,15 @@ window.openMemberModal = (id, name) => {
 };
 
 window.closeMemberModal = () => {
-    document.getElementById('member-modal').style.display = 'none';
     const modal = document.getElementById('member-modal');
-    modal.querySelectorAll('input').forEach(i => i.value = '');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.querySelectorAll('input:not([type="hidden"])').forEach(i => i.value = '');
+    }
 };
 
 window.saveMemberToCase = () => {
-    const caseId = parseInt(document.getElementById('target-case-id').value);
+    const caseIdInput = document.getElementById('target-case-id');
     const name = document.getElementById('modal-member-name').value;
     const idNo = document.getElementById('modal-member-id').value;
     const relation = document.getElementById('modal-member-relation').value;
@@ -3388,15 +3975,23 @@ window.saveMemberToCase = () => {
     const job = document.getElementById('modal-member-job').value;
 
     if (name) {
-        const caseIndex = appData.cases.findIndex(c => c.id === caseId);
-        if (caseIndex !== -1) {
-            if (!appData.cases[caseIndex].members) appData.cases[caseIndex].members = [];
-            appData.cases[caseIndex].members.push({
-                name, idNo, relation, age, job
-            });
-            saveData();
-            closeMemberModal();
-            renderPage('cases');
+        const memberObj = { name, idNo, relation, age, job };
+
+        // If target-case-id is "NEW", it means we're adding to the current modal's pending members
+        if (caseIdInput && caseIdInput.value === 'NEW') {
+            modalMembers.push(memberObj);
+            window.updateModalMembersPreview();
+            window.closeMemberModal();
+        } else {
+            const caseId = parseInt(caseIdInput.value);
+            const caseIndex = appData.cases.findIndex(c => c.id === caseId);
+            if (caseIndex !== -1) {
+                if (!appData.cases[caseIndex].members) appData.cases[caseIndex].members = [];
+                appData.cases[caseIndex].members.push(memberObj);
+                saveData();
+                window.closeMemberModal();
+                renderPage('cases');
+            }
         }
     } else {
         alert('يرجى إدخال اسم الفرد');
@@ -5959,5 +6554,111 @@ window.renderCategoryRegister = (category) => {
     contentArea.innerHTML = html;
     window.scrollTo(0, 0);
 };
+
+// --- GLOBAL HEADER SEARCH FUNCTION ---
+window.performGlobalSearch = (val) => {
+    const resultsDiv = document.getElementById('global-search-results');
+    if (!val || val.length < 2) {
+        if (resultsDiv) resultsDiv.style.display = 'none';
+        return;
+    }
+
+    const query = val.toLowerCase();
+    const qNormalized = window.normalizeArabic(val);
+
+    // 1. Search locally in appData.cases
+    const localMatches = appData.cases.filter(c => {
+        if (c.hidden) return false;
+        const searchStr = `${c.name} ${c.nationalId} ${c.phone} ${c.searchNumber || ''}`.toLowerCase();
+        const searchStrNorm = window.normalizeArabic(searchStr);
+        return searchStr.includes(query) || searchStrNorm.includes(qNormalized);
+    }).slice(0, 5);
+
+    // 2. Initial render with local results
+    if (localMatches.length > 0) {
+        resultsDiv.innerHTML = `<div style="padding: 10px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #475569; font-weight: bold;">نتائج من جمعيتك:</div>` +
+            localMatches.map(c => `
+                <div class="dropdown-item" onclick="openDetailsModal(${c.id})">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>${c.name}</strong>
+                        <span style="font-size: 0.7rem; color: #666;">#${c.searchNumber || '-'}</span>
+                    </div>
+                    <span style="font-size: 0.75rem; color: #888;">القومي: ${c.nationalId || '-'} | الهاتف: ${c.phone || '-'}</span>
+                </div>
+            `).join('');
+        resultsDiv.style.display = 'block';
+    } else {
+        resultsDiv.innerHTML = `<div style="padding: 15px; text-align: center; color: #999;">لا توجد نتائج محلية...</div>`;
+        resultsDiv.style.display = 'block';
+    }
+
+    // 3. Trigger Global Cross-Check (Debounced)
+    if (window.globalSearchTimeout) clearTimeout(window.globalSearchTimeout);
+    window.globalSearchTimeout = setTimeout(async () => {
+        const loaderId = 'global-header-loader';
+        if (!document.getElementById(loaderId)) {
+            resultsDiv.innerHTML += `
+                <div id="${loaderId}" style="padding: 10px; background: #f0f5ff; border-top: 1px solid #adc6ff; font-size: 0.8rem; color: #2f54eb; text-align: center;">
+                    <i class="fas fa-spinner fa-spin"></i> جاري البحث في الجمعيات الأخرى...
+                </div>
+            `;
+        }
+
+        try {
+            const globalCharities = await window.fetchAllCharitiesData();
+            const globalMatches = [];
+
+            globalCharities.forEach(charity => {
+                charity.cases.forEach(c => {
+                    const searchStr = `${c.name} ${c.nationalId} ${c.phone}`.toLowerCase();
+                    const searchStrNorm = window.normalizeArabic(searchStr);
+                    if (searchStr.includes(query) || searchStrNorm.includes(qNormalized)) {
+                        globalMatches.push({
+                            ...c,
+                            charityName: charity.charityName,
+                            ownerName: charity.ownerName,
+                            ownerPhone: charity.ownerPhone
+                        });
+                    }
+                });
+            });
+
+            const loader = document.getElementById(loaderId);
+            if (loader) loader.remove();
+
+            if (globalMatches.length > 0) {
+                // Filter out those already found locally
+                const filteredGlobal = globalMatches.filter(gm =>
+                    !localMatches.some(lm => lm.nationalId === gm.nationalId && lm.name === gm.name)
+                );
+
+                if (filteredGlobal.length > 0) {
+                    resultsDiv.innerHTML += `
+                        <div style="padding: 10px; background: #fff7e6; border-top: 2px solid #ffa940; font-size: 0.85rem; color: #d46b08; font-weight: bold; margin-top: 5px;">
+                            <i class="fas fa-globe"></i> وُجدت في سجلات جمعيات أخرى (${filteredGlobal.length}):
+                        </div>
+                    ` + filteredGlobal.slice(0, 5).map(c => `
+                        <div class="dropdown-item" style="background: #fffbe6; border-right: 4px solid #faad14;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong style="color: #d46b08;">${c.name}</strong>
+                                <span style="font-size: 0.7rem; background: #faad14; color: #fff; padding: 2px 5px; border-radius: 4px;">جمعية أخرى</span>
+                            </div>
+                            <div style="font-weight: 800; color: #1d4ed8; margin-top: 4px; font-size: 0.85rem;">جمعية: ${c.charityName}</div>
+                            <div style="font-size: 0.75rem; color: #444; margin-top: 2px; padding: 4px; background: white; border-radius: 4px; border: 1px solid #ffe58f;">
+                                <i class="fas fa-user-tie"></i> المدير: ${c.ownerName}<br>
+                                <i class="fas fa-phone-alt"></i> للتواصل: <a href="tel:${c.ownerPhone}" style="color: #1d4ed8; font-weight: 800;">${c.ownerPhone}</a>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } else if (localMatches.length === 0) {
+                resultsDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: #999;"><i class="fas fa-search-minus fa-2x"></i><p>لم يتم العثور على أي نتائج محلياً أو عالمياً</p></div>`;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, 800);
+};
+
 
 
