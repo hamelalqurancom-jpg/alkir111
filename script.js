@@ -2908,24 +2908,79 @@ window.restoreBackup = (input) => {
     reader.onload = async (e) => {
         try {
             const importedData = JSON.parse(e.target.result);
-            if (confirm('سيتم استبدال كافة البيانات الحالية بالبيانات من الملف المرفوع. هل أنت متأكد؟')) {
-                appData = importedData;
-                saveData(true);
 
-                if (document.getElementById('sync-status')) {
-                    document.getElementById('sync-status').innerText = 'جاري رفع الملف للسحابة...';
-                }
-
-                // Force complete sync by marking local diffs as completely unsynced
-                lastSyncedData = { cases: {}, donations: {}, expenses: {}, volunteers: {}, affidavits: {}, inventory: {} };
-
-                await syncToFirestoreBackground();
-
-                alert('تم استعادة البيانات ورفعها للسحابة بنجاح!');
-                location.reload(); // Refresh to ensure all states are clean
+            // Validate structure
+            if (typeof importedData !== 'object' || Array.isArray(importedData)) {
+                alert('الملف غير صحيح. تأكد أنه ملف نسخة احتياطية من النظام.');
+                return;
             }
+
+            if (!confirm('سيتم استبدال كافة البيانات الحالية بالبيانات من الملف المرفوع. هل أنت متأكد؟')) {
+                input.value = '';
+                return;
+            }
+
+            // ✅ تحديث البيانات في الذاكرة
+            appData = importedData;
+            if (!appData.cases) appData.cases = [];
+            if (!appData.donations) appData.donations = [];
+            if (!appData.expenses) appData.expenses = [];
+            if (!appData.volunteers) appData.volunteers = [];
+            if (!appData.affidavits) appData.affidavits = [];
+            if (!appData.inventory) appData.inventory = [];
+
+            const uid = localStorage.getItem('logged_charity_id');
+
+            // ✅ حفظ محلي
+            if (uid) localStorage.setItem('alkhair_data_' + uid, JSON.stringify(appData));
+            localStorage.setItem('alkhair_app_data', JSON.stringify(appData));
+
+            const syncStatusEl = document.getElementById('sync-status');
+
+            // ✅ رفع مباشر إلى Firebase Firestore
+            if (uid && window.db) {
+                if (syncStatusEl) {
+                    syncStatusEl.innerText = 'جاري رفع البيانات إلى قاعدة البيانات السحابية...';
+                    syncStatusEl.style.color = '#f97316';
+                }
+                try {
+                    await window.db
+                        .collection('charities')
+                        .doc(uid)
+                        .collection('data')
+                        .doc('app_state')
+                        .set(appData);
+
+                    if (syncStatusEl) {
+                        syncStatusEl.innerText = '✅ تم رفع البيانات إلى السحابة بنجاح';
+                        syncStatusEl.style.color = '#22c55e';
+                    }
+                    alert(
+                        '✅ تم رفع البيانات إلى قاعدة بيانات الجمعية بنجاح!\n\n' +
+                        'تم استيراد:\n' +
+                        '- ' + appData.cases.length + ' حالة\n' +
+                        '- ' + appData.donations.length + ' تبرع\n' +
+                        '- ' + appData.expenses.length + ' صرف\n' +
+                        '- ' + appData.volunteers.length + ' متطوع'
+                    );
+                } catch (firebaseErr) {
+                    console.error('Firebase upload error:', firebaseErr);
+                    if (syncStatusEl) {
+                        syncStatusEl.innerText = '⚠️ تم الحفظ محلياً فقط - فشل الرفع للسحابة';
+                        syncStatusEl.style.color = '#ef4444';
+                    }
+                    alert('⚠️ تم حفظ البيانات على الجهاز، لكن فشل الرفع إلى السحابة.\nالسبب: ' + firebaseErr.message);
+                }
+            } else {
+                alert('✅ تم استعادة البيانات على الجهاز بنجاح!\n(لم يتم الرفع للسحابة - لست مسجل الدخول أو لا يوجد إنترنت)');
+            }
+
+            input.value = '';
+            setTimeout(() => location.reload(), 600);
+
         } catch (err) {
-            alert('خطأ في قراءة ملف البيانات. تأكد أنه ملف JSON صحيح.');
+            console.error('Restore error:', err);
+            alert('خطأ في قراءة الملف. تأكد أنه ملف JSON صحيح.\nالخطأ: ' + err.message);
         }
     };
     reader.readAsText(file);
