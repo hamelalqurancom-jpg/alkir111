@@ -46,8 +46,7 @@
                 <i class="fas fa-hand-holding-heart fa-4x" style="color: #6366f1;"></i>
             </div>
             <h1 style="font-size: 2rem; margin-bottom: 15px; font-weight: 800;">نظام إدارة الجمعيات الخيرية</h1>
-            <p style="font-size: 1.4rem; color: #cbd5e1; margin-bottom: 35px; font-weight: 600;">تم التصميم والتطوير
-                بواسطة جمعية الخير لتنمية المجتمع بمسير</p>
+            <p style="font-size: 1.2rem; color: #94a3b8; margin-bottom: 35px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">تم التصميم والتطوير بواسطة جمعية الخير لتنمية المجتمع بمسير</p>
             <div class="splash-loader"></div>
             <div class="splash-actions" style="margin-top: 30px; display: none;">
                 <button id="start-trial-btn" class="btn-primary" style="padding: 15px 40px; font-size: 1.2rem;">بدء
@@ -695,6 +694,21 @@
                         <div class="input-group-office">
                             <label>نوع الاستفادة (مثلاً: كراتين رمضان)</label>
                             <input type="text" id="print-benefit-type" class="office-input" placeholder="بطاطين الشتاء">
+                        </div>
+                        
+                        <!-- Column Selection (Customizable) -->
+                        <div style="margin-top: 15px; border-top: 1px dashed #217346; padding-top: 10px;">
+                            <label style="font-weight: bold; color: #217346; display: block; margin-bottom: 8px;">اختيار الأعمدة (ماذا تريد أن يظهر في الجدول؟)</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 0.85rem;">
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="name" checked> الاسم</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="nationalId" checked> الرقم القومي</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="status" checked> الحالة</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="address" checked> العنوان</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="phone" checked> التليفون</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="aid" checked> المساعدة</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="sign" checked> التوقيع</label>
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" class="print-col-check" value="finger" checked> البصمة</label>
+                            </div>
                         </div>
                     </div>
 

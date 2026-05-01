@@ -630,13 +630,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof window.renderPage === 'function') {
                     window.renderPage('dashboard');
                 }
-            }, 2000);
+            }, 3000);
         } else {
             // Show splash then auth
             setTimeout(() => {
                 window.hideSplash();
                 if (authScreen) authScreen.style.display = 'flex';
-            }, 2000);
+            }, 3000);
         }
 
         // --- INITIAL DATA LOAD (fallback) ---
@@ -1099,24 +1099,24 @@ window.renderPage = (page, contextId = null) => {
                                             <td style="font-weight: 800; color: #3730a3; white-space: nowrap; background: rgba(79, 70, 229, 0.03); font-size: 1rem;">${c.name}</td>
                                             <td style="color: #2563eb; font-family: monospace;">${c.nationalId || '-'}</td>
                                             <td style="color: #1e40af; font-weight: 700; background: rgba(30, 64, 175, 0.03);">${(() => {
-                                                const id = c.nationalId || '';
-                                                if (id.length !== 14) return '-';
-                                                const centuryDigit = parseInt(id[0]);
-                                                const century = (centuryDigit === 2) ? 1900 : (centuryDigit === 3) ? 2000 : null;
-                                                if (!century) return '-';
-                                                const year = century + parseInt(id.substring(1, 3));
-                                                const month = parseInt(id.substring(3, 5));
-                                                const day = parseInt(id.substring(5, 7));
-                                                const birthDate = new Date(year, month - 1, day);
-                                                if (isNaN(birthDate)) return '-';
-                                                const now = new Date();
-                                                let years = now.getFullYear() - birthDate.getFullYear();
-                                                let months = now.getMonth() - birthDate.getMonth();
-                                                let days = now.getDate() - birthDate.getDate();
-                                                if (days < 0) { months--; const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0); days += lastMonth.getDate(); }
-                                                if (months < 0) { years--; months += 12; }
-                                                return `${years} سنة و ${months} شهر و ${days} يوم`;
-                                            })()}</td>
+                    const id = c.nationalId || '';
+                    if (id.length !== 14) return '-';
+                    const centuryDigit = parseInt(id[0]);
+                    const century = (centuryDigit === 2) ? 1900 : (centuryDigit === 3) ? 2000 : null;
+                    if (!century) return '-';
+                    const year = century + parseInt(id.substring(1, 3));
+                    const month = parseInt(id.substring(3, 5));
+                    const day = parseInt(id.substring(5, 7));
+                    const birthDate = new Date(year, month - 1, day);
+                    if (isNaN(birthDate)) return '-';
+                    const now = new Date();
+                    let years = now.getFullYear() - birthDate.getFullYear();
+                    let months = now.getMonth() - birthDate.getMonth();
+                    let days = now.getDate() - birthDate.getDate();
+                    if (days < 0) { months--; const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0); days += lastMonth.getDate(); }
+                    if (months < 0) { years--; months += 12; }
+                    return `${years} سنة و ${months} شهر و ${days} يوم`;
+                })()}</td>
                                             <td style="color: #7c3aed;">${c.job || '-'}</td>
                                             <td style="color: #db2777; font-weight: 700;">${c.phone || '-'}</td>
                                             <td style="text-align: center; color: #ea580c; font-weight: 800; background: rgba(234, 88, 12, 0.05);">${c.familyMembers || '-'}</td>
@@ -1230,16 +1230,16 @@ window.renderPage = (page, contextId = null) => {
                                                                 <span style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 5px; color: #666;">مرفقات إضافية:</span>
                                                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                                                                     ${c.docs.map((doc, dIdx) => {
-                const url = typeof doc === 'string' ? doc : doc.url;
-                const label = typeof doc === 'object' && doc.label ? doc.label : '';
-                return `
+                    const url = typeof doc === 'string' ? doc : doc.url;
+                    const label = typeof doc === 'object' && doc.label ? doc.label : '';
+                    return `
                                                                             <div style="position: relative; text-align: center;">
                                                                                 <img src="${url}" style="width: 100%; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #eee; cursor: pointer;" onclick="event.stopPropagation(); openImageViewer('${url}')">
                                                                                 ${label ? `<div style="position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: white; font-size: 0.5rem; padding: 1px;">${label}</div>` : ''}
                                                                                 <i class="fas fa-times-circle" style="position: absolute; top: -5px; right: -5px; color: #e11d48; cursor: pointer; background: white; border-radius: 50%; font-size: 0.8rem;" onclick="event.stopPropagation(); removeCaseDoc(${c.id}, ${dIdx})"></i>
                                                                             </div>
                                                                         `;
-            }).join('')}
+                }).join('')}
                                                                 </div>
                                                             </div>
                                                         ` : ''}
@@ -5549,7 +5549,9 @@ window.proceedToPrintDonation = () => {
         content = buildAssociationOfficialHTML(targetCases);
     } else if (template === 'rawabit-list' || template === 'new-institution') {
         orientation = 'landscape';
-        content = buildRawabitHTML(targetCases, institutionName, benefitType);
+        // Get selected columns
+        const selectedCols = Array.from(document.querySelectorAll('.print-col-check:checked')).map(cb => cb.value);
+        content = buildRawabitHTML(targetCases, institutionName, benefitType, selectedCols);
     } else if (template === 'orman-list') {
         orientation = 'portrait';
         content = buildOrmanHTML(targetCases);
@@ -5596,7 +5598,7 @@ function buildOrmanHTML(cases) {
             <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 10mm; color: #000; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; height: 12vh; border-bottom: 2px solid #000; padding-bottom: 15px;">
                     <div style="text-align: right; flex: 1; font-size: 0.9rem;">
-                        <p style="margin:0; font-weight:800; font-size:1.1rem;">جمعية الخير لتنمية المجتمع بمسير</p>
+                        <p style="margin:0; font-weight:800; font-size:1.1rem;">${window.charityName || 'جمعية الخير'}</p>
                         <p style="margin:0">كفر الشيخ - مسير</p>
                         <p style="margin:0">التاريخ: ${document.getElementById('report-print-date')?.value || new Date().toLocaleDateString('ar-EG')}</p>
                     </div>
@@ -5611,7 +5613,7 @@ function buildOrmanHTML(cases) {
                 </div>
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h3 style="margin: 5px 0; font-weight: 800; text-decoration: underline;">كشف توزيع مساعدات بالمجان</h3>
-                    <h4 style="margin: 5px 0;">مقدمة من جمعية الأورمان بالتعاون مع جمعية الخير بمسير</h4>
+                    <h4 style="margin: 5px 0;">مقدمة من جمعية الأورمان بالتعاون مع ${window.charityName || 'جمعية الخير'}</h4>
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 1.1rem; border: 2.5px solid #000;">
                     <thead>
@@ -5633,33 +5635,60 @@ function buildOrmanHTML(cases) {
         `;
 }
 
-function buildRawabitHTML(cases, institutionName, benefitType) {
+function buildRawabitHTML(cases, institutionName, benefitType, selectedCols = ['name', 'nationalId', 'status', 'address', 'phone', 'aid', 'sign', 'finger']) {
     if (cases.length === 0) return '';
-    const rowsHtml = cases.map((c, i) => `
+
+    // Column Definitions Map
+    const colMap = {
+        'name': { label: 'الاسم', width: '230px', style: 'text-align: right; font-weight: bold; font-size: 1.05rem; white-space: nowrap;' },
+        'nationalId': { label: 'الرقم القومي', width: '150px', style: 'text-align: center; font-size: 0.95rem;' },
+        'status': { label: 'الحالة', width: '100px', style: 'text-align: center; font-size: 0.9rem;' },
+        'address': { label: 'العنــوان', width: 'auto', style: 'text-align: center; font-size: 0.9rem;' },
+        'phone': { label: 'التليفون', width: '120px', style: 'text-align: center; font-size: 0.9rem;' },
+        'aid': { label: 'المساعدة', width: '100px', style: 'text-align: center; font-size: 0.8rem; font-weight: bold;' },
+        'sign': { label: 'التوقيع', width: '120px', style: 'height: 35px;' },
+        'finger': { label: 'البصمة', width: '90px', style: '' }
+    };
+
+    const headerColsHtml = selectedCols.map(key => {
+        const col = colMap[key];
+        return `<th style="padding: 12px; border: 2.5px solid #000; width: ${col.width};">${col.label}</th>`;
+    }).join('');
+
+    const rowsHtml = cases.map((c, i) => {
+        const cellsHtml = selectedCols.map(key => {
+            const col = colMap[key];
+            let cellContent = '';
+
+            if (key === 'name') cellContent = c.name;
+            else if (key === 'nationalId') cellContent = c.nationalId || '-';
+            else if (key === 'status') cellContent = c.socialStatus || '-';
+            else if (key === 'address') cellContent = c.address || 'مسير';
+            else if (key === 'phone') cellContent = c.phone || '-';
+            else if (key === 'aid') {
+                cellContent = benefitType ? benefitType : (() => {
+                    const lastAid = (c.aidHistory && c.aidHistory.length > 0) ? c.aidHistory[c.aidHistory.length - 1] : null;
+                    if (lastAid && lastAid.inkind) {
+                        if (lastAid.inkind.multiple && lastAid.inkind.items) {
+                            const itemsStr = lastAid.inkind.items.map(i => i.itemName).join(' + ');
+                            return itemsStr + ' (' + lastAid.amount + 'ج)';
+                        }
+                        return (lastAid.inkind.itemName || 'عيني') + ' (' + lastAid.amount + 'ج)';
+                    }
+                    return c.amount ? c.amount + ' ج.م' : '-';
+                })();
+            }
+
+            return `<td style="padding: 5px; border: 1.5px solid #000; ${col.style}">${cellContent}</td>`;
+        }).join('');
+
+        return `
             <tr style="height: 48px;">
                 <td style="padding: 5px; border: 1.5px solid #000; text-align: center; font-weight: bold;">${i + 1}</td>
-                <td style="padding: 5px 10px; border: 1.5px solid #000; text-align: right; font-weight: bold; font-size: 1.05rem; white-space: nowrap;">${c.name}</td>
-                <td style="padding: 5px; border: 1.5px solid #000; text-align: center; font-size: 0.95rem;">${c.nationalId || '-'}</td>
-                <td style="padding: 5px; border: 1.5px solid #000; text-align: center; font-size: 0.9rem;">${c.socialStatus || '-'}</td>
-                <td style="padding: 5px; border: 1.5px solid #000; text-align: center; font-size: 0.9rem;">${c.address || 'مسير'}</td>
-                <td style="padding: 5px; border: 1.5px solid #000; text-align: center; font-size: 0.9rem;">${c.phone || '-'}</td>
-                <td style="padding: 5px; border: 1.5px solid #000; text-align: center; font-size: 0.8rem; font-weight: bold;">
-                    ${(() => {
-            const lastAid = (c.aidHistory && c.aidHistory.length > 0) ? c.aidHistory[c.aidHistory.length - 1] : null;
-            if (lastAid && lastAid.inkind) {
-                if (lastAid.inkind.multiple && lastAid.inkind.items) {
-                    const itemsStr = lastAid.inkind.items.map(i => i.itemName).join(' + ');
-                    return itemsStr + ' (' + lastAid.amount + 'ج)';
-                }
-                return (lastAid.inkind.itemName || 'عيني') + ' (' + lastAid.amount + 'ج)';
-            }
-            return c.amount ? c.amount + ' ج.م' : '-';
-        })()}
-                </td>
-                <td style="padding: 5px; border: 1.5px solid #000; height: 35px;"></td>
-                <td style="padding: 5px; border: 1.5px solid #000;"></td>
+                ${cellsHtml}
             </tr>
-        `).join('');
+        `;
+    }).join('');
 
     return `
             <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 5mm; color: #000; border: 2px solid #000; min-height: 98vh; width: 100%; box-sizing: border-box;">
@@ -5668,7 +5697,7 @@ function buildRawabitHTML(cases, institutionName, benefitType) {
                          <img src="logo.png" style="height: 60px;">
                          <div>
                             <div style="font-weight: 900; font-size: 1.25rem; color: #1d4ed8;">${institutionName || 'بوابتك للخير'}</div>
-                            <div style="font-size: 0.9rem; font-weight: 800; margin-top: 5px;">جمعية الخير لتنمية المجتمع بمسير</div>
+                            <div style="font-size: 0.9rem; font-weight: 800; margin-top: 5px;">${window.charityName || 'جمعية الخير'}</div>
                          </div>
                     </div>
                     <div style="text-align: center; flex: 2;">
@@ -5683,14 +5712,7 @@ function buildRawabitHTML(cases, institutionName, benefitType) {
                     <thead>
                         <tr style="background-color: #f5f5f5;">
                             <th style="padding: 12px; border: 2.5px solid #000; width: 40px;">م</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 230px;">الاسم</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 150px;">الرقم القومي</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 100px;">الحالة</th>
-                            <th style="padding: 12px; border: 2.5px solid #000;">العنــوان</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 120px;">التليفون</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 100px;">المساعدة</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 120px;">التوقيع</th>
-                            <th style="padding: 12px; border: 2.5px solid #000; width: 90px;">البصمة</th>
+                            ${headerColsHtml}
                         </tr>
                     </thead>
                     <tbody>${rowsHtml}</tbody>
@@ -5738,7 +5760,7 @@ function buildAssociationOfficialHTML(cases) {
                     <div style="flex: 2; display: flex; align-items: center; gap: 15px;">
                         <img src="logo.png" style="height: 65px;">
                         <div>
-                            <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800;">جمعية الخير لتنمية المجتمع بمسير</h2>
+                            <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.95rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: bold;">تحريراً في: ${document.getElementById('report-print-date')?.value || new Date().toLocaleDateString('ar-EG')}</p>
                         </div>
@@ -5816,7 +5838,7 @@ function buildMisrElKheirHTML(cases) {
                         </div>
                         <div style="flex: 1.5; text-align: left; display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
                             <div style="text-align: center;">
-                                <div style="font-weight: 900; font-size: 0.95rem;">جمعية الخير لتنمية المجتمع بمسير</div>
+                                <div style="font-weight: 900; font-size: 0.95rem;">${window.charityName || 'جمعية الخير'}</div>
                                 <div style="font-size: 0.75rem; font-weight: 700;">مشهرة برقم 1899 لسنة 2012</div>
                             </div>
                             <img src="logo.png" style="height: 55px;">
@@ -5871,7 +5893,7 @@ function buildDonationListHTML() {
                     <div style="text-align: right; flex: 2; display: flex; align-items: center; gap: 15px;">
                         <img src="logo.png" style="height: 60px;">
                         <div>
-                            <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800;">جمعية الخير بمسير</h2>
+                            <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">سجل المقبوضات (التبرعات)</p>
                         </div>
                     </div>
@@ -5907,7 +5929,7 @@ function generateDonationReceipt(d, template) {
             <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 40px; border: 5px double ${color}; max-width: 600px; margin: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid ${color}; padding-bottom: 15px;">
                     <div style="text-align: right;">
-                        <h2 style="color: ${color}; margin: 0;">جمعية الخير بمسير</h2>
+                        <h2 style="color: ${color}; margin: 0;">${window.charityName || 'جمعية الخير'}</h2>
                         <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">المشهرة برقم 1899 لسنة 2012</p>
                         <p style="margin: 5px 0; font-weight: bold;">إيصال استلام تبرع رقم: ${d.id}</p>
                     </div>
@@ -6768,11 +6790,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
-    
+
     // Show the Install UI (Header button and Banner)
     const headerBtn = document.getElementById('install-app-header');
     const banner = document.getElementById('pwa-install-banner');
-    
+
     if (headerBtn) headerBtn.style.display = 'inline-flex';
     if (banner) banner.style.display = 'flex';
 });
@@ -6789,7 +6811,7 @@ window.installPWA = async () => {
     console.log(`User response to the install prompt: ${outcome}`);
     // We've used the prompt, and can't use it again, throw it away
     deferredPrompt = null;
-    
+
     // Hide UI
     const headerBtn = document.getElementById('install-app-header');
     const banner = document.getElementById('pwa-install-banner');
@@ -6800,13 +6822,13 @@ window.installPWA = async () => {
 window.addEventListener('appinstalled', (event) => {
     // Clear the deferredPrompt so it can be garbage collected
     deferredPrompt = null;
-    
+
     // Hide UI
     const headerBtn = document.getElementById('install-app-header');
     const banner = document.getElementById('pwa-install-banner');
     if (headerBtn) headerBtn.style.display = 'none';
     if (banner) banner.style.display = 'none';
-    
+
     alert('تم تثبيت التطبيق بنجاح! يمكنك الآن تشغيله من شاشة الهاتف الرئيسية.');
 });
 
