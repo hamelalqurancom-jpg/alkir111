@@ -1073,6 +1073,7 @@ window.renderPage = (page, contextId = null) => {
                                         <th>المركز</th>
                                         <th>الاسم</th>
                                         <th>الرقم القومي</th>
+                                        <th>السن (دقيق)</th>
                                         <th>المهنة</th>
                                         <th>الهاتف</th>
                                         <th>الأفراد</th>
@@ -1097,6 +1098,25 @@ window.renderPage = (page, contextId = null) => {
                                             <td style="color: #059669; font-weight: 600; background: rgba(5, 150, 105, 0.03);">${c.center || '-'}</td>
                                             <td style="font-weight: 800; color: #3730a3; white-space: nowrap; background: rgba(79, 70, 229, 0.03); font-size: 1rem;">${c.name}</td>
                                             <td style="color: #2563eb; font-family: monospace;">${c.nationalId || '-'}</td>
+                                            <td style="color: #1e40af; font-weight: 700; background: rgba(30, 64, 175, 0.03);">${(() => {
+                                                const id = c.nationalId || '';
+                                                if (id.length !== 14) return '-';
+                                                const centuryDigit = parseInt(id[0]);
+                                                const century = (centuryDigit === 2) ? 1900 : (centuryDigit === 3) ? 2000 : null;
+                                                if (!century) return '-';
+                                                const year = century + parseInt(id.substring(1, 3));
+                                                const month = parseInt(id.substring(3, 5));
+                                                const day = parseInt(id.substring(5, 7));
+                                                const birthDate = new Date(year, month - 1, day);
+                                                if (isNaN(birthDate)) return '-';
+                                                const now = new Date();
+                                                let years = now.getFullYear() - birthDate.getFullYear();
+                                                let months = now.getMonth() - birthDate.getMonth();
+                                                let days = now.getDate() - birthDate.getDate();
+                                                if (days < 0) { months--; const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0); days += lastMonth.getDate(); }
+                                                if (months < 0) { years--; months += 12; }
+                                                return `${years} سنة و ${months} شهر و ${days} يوم`;
+                                            })()}</td>
                                             <td style="color: #7c3aed;">${c.job || '-'}</td>
                                             <td style="color: #db2777; font-weight: 700;">${c.phone || '-'}</td>
                                             <td style="text-align: center; color: #ea580c; font-weight: 800; background: rgba(234, 88, 12, 0.05);">${c.familyMembers || '-'}</td>
@@ -1449,7 +1469,11 @@ window.renderPage = (page, contextId = null) => {
                             </div>
                             <div class="input-group-office">
                                 <label>الرقم القومي</label>
-                                <input type="text" id="aid-national-id" class="office-input" value="${targetBeneficiary ? (targetBeneficiary.nationalId || '') : ''}" placeholder="سيتم التعبئة تلقائياً">
+                                <input type="text" id="aid-national-id" class="office-input" value="${targetBeneficiary ? (targetBeneficiary.nationalId || '') : ''}" placeholder="سيتم التعبئة تلقائياً" oninput="if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'aid-age-display')">
+                            </div>
+                            <div class="input-group-office">
+                                <label>السن (محسوب)</label>
+                                <input type="text" id="aid-age-display" class="office-input" readonly style="background: #f8fafc; font-weight: 700; color: #1d4ed8;" value="${targetBeneficiary ? (window.calculateAgeFromID ? window.calculateAgeFromID(targetBeneficiary.nationalId) : '') : ''}">
                             </div>
                         </div>
 
@@ -1849,9 +1873,14 @@ window.renderPage = (page, contextId = null) => {
                                 <div class="input-group-office">
                                     <label style="color: #065f46;">الرقم القومي للزوج</label>
                                     <div class="dropdown-container">
-                                        <input type="text" id="aff-husband-id" class="office-input" style="border-right: 4px solid #059669;" oninput="checkAffidavitDuplicates('nationalId', this.value)">
+                                        <input type="text" id="aff-husband-id" class="office-input" style="border-right: 4px solid #059669;" oninput="checkAffidavitDuplicates('nationalId', this.value); if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'aff-husband-age-display')">
                                         <div id="aff-husband-id-results" class="dropdown-results"></div>
                                     </div>
+                                </div>
+                                <div class="input-group-office">
+                                    <label style="color: #065f46;">سن الزوج (تلقائي)</label>
+                                    <input type="text" id="aff-husband-age-display" class="office-input" readonly 
+                                        style="background: rgba(255,255,255,0.5); font-weight: 700; color: #059669; border-right: 4px solid #059669;" placeholder="سيظهر السن هنا...">
                                 </div>
                                 <div class="input-group-office">
                                     <label style="color: #065f46;">هاتف الزوج</label>
@@ -1875,9 +1904,14 @@ window.renderPage = (page, contextId = null) => {
                                 <div class="input-group-office">
                                     <label style="color: #9d174d;">الرقم القومي للزوجة</label>
                                     <div class="dropdown-container">
-                                        <input type="text" id="aff-wife-id" class="office-input" style="border-right: 4px solid #f43f5e;" oninput="checkAffidavitDuplicates('spouseId', this.value)">
+                                        <input type="text" id="aff-wife-id" class="office-input" style="border-right: 4px solid #f43f5e;" oninput="checkAffidavitDuplicates('spouseId', this.value); if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'aff-wife-age-display')">
                                         <div id="aff-wife-id-results" class="dropdown-results"></div>
                                     </div>
+                                </div>
+                                <div class="input-group-office">
+                                    <label style="color: #9d174d;">سن الزوجة (تلقائي)</label>
+                                    <input type="text" id="aff-wife-age-display" class="office-input" readonly 
+                                        style="background: rgba(255,255,255,0.5); font-weight: 700; color: #e11d48; border-right: 4px solid #f43f5e;" placeholder="سيظهر السن هنا...">
                                 </div>
                                 <div class="input-group-office">
                                     <label style="color: #9d174d;">هاتف الزوجة</label>
@@ -2614,6 +2648,7 @@ window.prepareEditCase = (id) => {
     document.getElementById('modal-case-center').value = c.center || '';
     document.getElementById('modal-case-name').value = c.name || '';
     document.getElementById('modal-case-national-id').value = c.nationalId || '';
+    if (window.calculateAgeFromID) window.calculateAgeFromID(c.nationalId, 'modal-case-age-display');
     document.getElementById('modal-case-job').value = c.job || '';
     document.getElementById('modal-case-phone').value = c.phone || '';
     document.getElementById('modal-case-spouse-name').value = c.spouseName || '';
@@ -6723,6 +6758,109 @@ window.performGlobalSearch = (val) => {
             console.error(e);
         }
     }, 800);
+};
+
+// --- PWA Installation Logic ---
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    
+    // Show the Install UI (Header button and Banner)
+    const headerBtn = document.getElementById('install-app-header');
+    const banner = document.getElementById('pwa-install-banner');
+    
+    if (headerBtn) headerBtn.style.display = 'inline-flex';
+    if (banner) banner.style.display = 'flex';
+});
+
+window.installPWA = async () => {
+    if (!deferredPrompt) {
+        alert('التطبيق مثبت بالفعل أو أن متصفحك لا يدعم التثبيت المباشر. يمكنك استخدام خيار "Add to Home Screen" من إعدادات المتصفح.');
+        return;
+    }
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, throw it away
+    deferredPrompt = null;
+    
+    // Hide UI
+    const headerBtn = document.getElementById('install-app-header');
+    const banner = document.getElementById('pwa-install-banner');
+    if (headerBtn) headerBtn.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+};
+
+window.addEventListener('appinstalled', (event) => {
+    // Clear the deferredPrompt so it can be garbage collected
+    deferredPrompt = null;
+    
+    // Hide UI
+    const headerBtn = document.getElementById('install-app-header');
+    const banner = document.getElementById('pwa-install-banner');
+    if (headerBtn) headerBtn.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    
+    alert('تم تثبيت التطبيق بنجاح! يمكنك الآن تشغيله من شاشة الهاتف الرئيسية.');
+});
+
+// Check if already installed
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    const headerBtn = document.getElementById('install-app-header');
+    const banner = document.getElementById('pwa-install-banner');
+    if (headerBtn) headerBtn.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+}
+
+// --- Age Calculation from National ID (Egypt) ---
+window.calculateAgeFromID = (id, targetId = null) => {
+    if (!id || id.length !== 14) {
+        if (targetId) document.getElementById(targetId).value = "";
+        return null;
+    }
+    const centuryDigit = parseInt(id[0]);
+    const century = (centuryDigit === 2) ? 1900 : (centuryDigit === 3) ? 2000 : null;
+    if (!century) {
+        if (targetId) document.getElementById(targetId).value = "";
+        return null;
+    }
+    const year = century + parseInt(id.substring(1, 3));
+    const month = parseInt(id.substring(3, 5));
+    const day = parseInt(id.substring(5, 7));
+
+    const birthDate = new Date(year, month - 1, day);
+    if (isNaN(birthDate.getTime())) {
+        if (targetId) document.getElementById(targetId).value = "";
+        return null;
+    }
+
+    const now = new Date();
+    let years = now.getFullYear() - birthDate.getFullYear();
+    let months = now.getMonth() - birthDate.getMonth();
+    let days = now.getDate() - birthDate.getDate();
+
+    if (days < 0) {
+        months--;
+        const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        days += lastMonth.getDate();
+    }
+    if (months < 0) {
+        years--;
+        months += 12;
+    }
+
+    const result = `${years} سنة و ${months} شهر و ${days} يوم`;
+    if (targetId) {
+        const el = document.getElementById(targetId);
+        if (el) el.value = result;
+    }
+    return years;
 };
 
 

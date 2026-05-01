@@ -16,12 +16,27 @@
     <!-- JsBarcode -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <link rel="stylesheet" href="style.css?v=2.4">
+    
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="logo.png">
 </head>
 
 <body>
     <!-- Critical Error Display -->
     <div id="critical-error-display"
         style="display: none; position: fixed; top: 0; left: 0; width: 100%; background: #ef4444; color: white; padding: 10px; text-align: center; z-index: 10000; font-weight: bold; font-family: 'Cairo', sans-serif;">
+    </div>
+
+    <!-- PWA Install Banner (Top) -->
+    <div id="pwa-install-banner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; background: #6366f1; color: white; padding: 12px; z-index: 9999; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); font-family: 'Cairo', sans-serif; align-items: center; justify-content: center; gap: 15px;">
+        <i class="fas fa-mobile-alt fa-lg"></i>
+        <span style="font-weight: 700;">ثبت تطبيق الخير الآن للحصول على أداء أسرع وتنبيهات!</span>
+        <button onclick="window.installPWA()" style="background: white; color: #6366f1; border: none; padding: 5px 20px; border-radius: 20px; font-weight: 800; cursor: pointer; font-size: 0.9rem;">تثبيت الآن</button>
+        <i class="fas fa-times" onclick="this.parentElement.style.display='none'" style="cursor: pointer; margin-right: 10px;"></i>
     </div>
 
     <!-- Splash Screen -->
@@ -166,6 +181,7 @@
                         <i class="fas fa-sign-out-alt" style="color: #f43f5e;"></i>
                         <span style="color: #f43f5e;">تسجيل الخروج</span>
                     </li>
+                    </li>
                 </ul>
             </nav>
         </aside>
@@ -199,6 +215,13 @@
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
+
+                    <!-- Header Install Button -->
+                    <button id="install-app-header" class="btn-primary" 
+                        style="display: none; padding: 6px 15px; font-size: 0.85rem; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); margin-left: 10px; border-radius: 8px; animation: pulse-blue 2s infinite;"
+                        onclick="window.installPWA()">
+                        <i class="fas fa-download"></i> تثبيت التطبيق
+                    </button>
 
                     <div class="zoom-controls">
                         <button onclick="changeZoom(0.1)" class="zoom-btn" title="تكبير">
@@ -350,9 +373,14 @@
                         <label>الرقم القومي</label>
                         <div class="dropdown-container">
                             <input type="text" id="modal-case-national-id" class="office-input"
-                                oninput="searchExistingCases('nationalId', this.value)" autocomplete="off">
+                                oninput="searchExistingCases('nationalId', this.value); if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'modal-case-age-display')" autocomplete="off">
                             <div id="case-id-results" class="dropdown-results"></div>
                         </div>
+                    </div>
+                    <div class="input-group-office">
+                        <label>السن (محسوب من الرقم القومي)</label>
+                        <input type="text" id="modal-case-age-display" class="office-input" readonly 
+                            style="background: #f8fafc; font-weight: 700; color: #1d4ed8;" placeholder="سيظهر السن هنا تلقائياً...">
                     </div>
                     <div class="input-group-office">
                         <label>المهنة</label>
@@ -378,9 +406,14 @@
                         <label>الرقم القومي للزوج/ة</label>
                         <div class="dropdown-container">
                             <input type="text" id="modal-case-spouse-id" class="office-input"
-                                oninput="searchExistingCases('spouseId', this.value)" autocomplete="off">
+                                oninput="searchExistingCases('spouseId', this.value); if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'modal-case-spouse-age-display')" autocomplete="off">
                             <div id="case-spouse-id-results" class="dropdown-results"></div>
                         </div>
+                    </div>
+                    <div class="input-group-office">
+                        <label>سن الزوج/ة (تلقائي)</label>
+                        <input type="text" id="modal-case-spouse-age-display" class="office-input" readonly 
+                            style="background: #f8fafc; font-weight: 700; color: #1d4ed8;" placeholder="السن...">
                     </div>
                     <div class="input-group-office">
                         <label>هاتف الزوج/ة</label>
@@ -544,7 +577,7 @@
                     </div>
                     <div class="input-group-office">
                         <label>الرقم القومي</label>
-                        <input type="text" id="modal-member-id" class="office-input">
+                        <input type="text" id="modal-member-id" class="office-input" oninput="if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'modal-member-age')">
                     </div>
                     <div class="input-group-office">
                         <label>صلة القرابة</label>
@@ -552,8 +585,9 @@
                             placeholder="مثلاً: ابن، ابنة...">
                     </div>
                     <div class="input-group-office">
-                        <label>السن</label>
-                        <input type="number" id="modal-member-age" class="office-input">
+                        <label>السن (تلقائي)</label>
+                        <input type="text" id="modal-member-age" class="office-input" readonly 
+                            style="background: #f8fafc; font-weight: 700; color: #1d4ed8;">
                     </div>
                     <div class="input-group-office">
                         <label>المهنة / الدراسة</label>
@@ -908,6 +942,43 @@
         window.showAuthPage = () => { };
     </script>
     <script src="script.js?v=2.5"></script>
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js?v=2.6')
+                    .then(reg => {
+                        console.log('Service Worker Registered');
+                        
+                        // Check for updates every time the page is loaded
+                        reg.update();
+
+                        // Detect when a new service worker is found
+                        reg.onupdatefound = () => {
+                            const installingWorker = reg.installing;
+                            installingWorker.onstatechange = () => {
+                                if (installingWorker.state === 'installed') {
+                                    if (navigator.serviceWorker.controller) {
+                                        // A new version is ready, the 'controllerchange' event will trigger the reload
+                                        console.log('New content is available; please refresh.');
+                                    }
+                                }
+                            };
+                        };
+                    })
+                    .catch(err => console.log('Service Worker Error', err));
+            });
+
+            // Handle the automatic reload when the new service worker takes control
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
 </body>
 
 </html>
