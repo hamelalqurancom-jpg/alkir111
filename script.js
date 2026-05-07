@@ -571,6 +571,112 @@ window.loadDataFromFile = async () => {
 // --- ZOOM LOGIC ---
 let currentZoom = parseFloat(localStorage.getItem('appZoom')) || 1.0;
 
+window.resetZoom = () => {
+    currentZoom = 1.0;
+    window.applyZoom();
+};
+
+// --- INTERACTIVE CHARTS ---
+window.initDashboardCharts = () => {
+    const typeCtx = document.getElementById('casesTypeChart');
+    const trendCtx = document.getElementById('aidTrendChart');
+    if (!typeCtx || !trendCtx) return;
+
+    // 1. Cases by Type
+    const typesCount = {};
+    appData.cases.forEach(c => {
+        const type = c.type || 'غير مصنف';
+        typesCount[type] = (typesCount[type] || 0) + 1;
+    });
+
+    new Chart(typeCtx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(typesCount),
+            datasets: [{
+                data: Object.values(typesCount),
+                backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } } } }
+    });
+
+    // 2. Aid Trend (Last 6 Months)
+    const months = [];
+    const totals = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthYear = d.toISOString().slice(0, 7); // YYYY-MM
+        months.push(monthYear);
+
+        const monthSum = (appData.expenses || [])
+            .filter(e => (e.date || '').startsWith(monthYear))
+            .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+        totals.push(monthSum);
+    }
+
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'إجمالي المساعدات',
+                data: totals,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { labels: { font: { family: 'Cairo' } } } }
+        }
+    });
+};
+
+// --- PDF EXPORT UTILITY ---
+window.exportToPDF = async (elementId, filename = 'report.pdf') => {
+    const { jsPDF } = window.jspdf;
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    try {
+        const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            dir: 'rtl'
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(filename);
+    } catch (err) {
+        console.error('PDF Export Error:', err);
+        alert('حدث خطأ أثناء تصدير ملف PDF');
+    }
+};
+
+// --- WHATSAPP UTILITY ---
+window.sendWhatsAppMessage = (phone, message) => {
+    if (!phone) return;
+    // Clean phone number
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '2' + cleanPhone;
+    if (!cleanPhone.startsWith('2')) cleanPhone = '2' + cleanPhone;
+
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+};
+
 window.applyZoom = () => {
     document.body.style.zoom = currentZoom;
     const zoomLevelText = document.getElementById('zoom-level');
@@ -602,6 +708,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const registerForm = document.getElementById('register-form');
         const authTitle = document.getElementById('auth-title');
         const authError = document.getElementById('auth-error');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+        // --- DARK MODE INIT ---
+        if (localStorage.getItem('dark-mode') === 'enabled') {
+            document.body.classList.add('dark-theme');
+            if (darkModeToggle) darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        }
+
+        if (darkModeToggle) {
+            darkModeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark-theme');
+                const isDark = document.body.classList.contains('dark-theme');
+                localStorage.setItem('dark-mode', isDark ? 'enabled' : 'disabled');
+                darkModeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            });
+        }
 
         const sidebarItems = document.querySelectorAll('.sidebar-nav li');
         const toggleSidebar = document.getElementById('toggle-sidebar');
@@ -611,6 +733,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- AUTH CHECK ---
         const loggedCharityId = localStorage.getItem('logged_charity_id');
         const loggedCharityName = localStorage.getItem('logged_charity_name');
+
+        // --- STAFF MODE INIT ---
+        window.staffMode = localStorage.getItem('staff_mode') === 'true';
+        window.STAFF_MODE_PASSWORD = '0000';
+        // Pages allowed in staff mode
+        window.STAFF_ALLOWED_PAGES = ['cases', 'exceptional', 'donations'];
 
         if (splashScreen) splashScreen.style.display = 'flex';
 
@@ -684,6 +812,14 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebarItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const page = item.getAttribute('data-page');
+                    if (!page) return; // logout li has no data-page
+
+                    // --- STAFF MODE GUARD ---
+                    if (window.staffMode && !window.STAFF_ALLOWED_PAGES.includes(page)) {
+                        alert('⛔ هذا القسم غير متاح في وضع الموظفين.\nيرجى إلغاء تفعيل وضع الموظفين من الإعدادات أولاً.');
+                        return;
+                    }
+
                     if (page === 'master') {
                         const pass = prompt('أدخل كلمة مرور الإدارة (الماستر):');
                         if (pass !== '1111') {
@@ -716,6 +852,14 @@ window.renderPage = (page, contextId = null) => {
     const contentArea = document.getElementById('content-area');
     if (!pageTitle || !contentArea) return;
 
+    // --- STAFF MODE ENFORCEMENT ---
+    if (window.staffMode && !window.STAFF_ALLOWED_PAGES.includes(page)) {
+        // Redirect to cases silently
+        page = 'cases';
+    }
+    // Apply sidebar visibility
+    window.applyStaffModeSidebar();
+
     const donationCats = appData.donations.map(d => d.type).flatMap(t => t.split(' - ')).filter(Boolean);
     const caseSources = appData.cases.map(c => c.source).filter(Boolean);
     const caseTypes = appData.cases.map(c => c.type).flatMap(t => (t || '').split(' - ')).filter(Boolean);
@@ -745,8 +889,10 @@ window.renderPage = (page, contextId = null) => {
             setTimeout(() => window.loadAllCharitiesForMaster(), 100);
             break;
 
-        case 'dashboard':
+                case 'dashboard':
             pageTitle.innerText = 'لوحة التحكم - ملخص عام';
+            
+            // Consolidate Statistics
             const catStats = {};
             dynamicCategories.forEach(cat => {
                 const donated = appData.donations
@@ -764,135 +910,126 @@ window.renderPage = (page, contextId = null) => {
                 };
             });
 
-            // Safe totals calculation
             const cashDonations = (appData.donations || []).filter(d => !d.inkind).reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
             const inventory = appData.inventory || [];
-            const inKindIncomingValue = inventory.reduce((sum, item) => sum + ((parseFloat(item.totalQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0);
-            const totalDonations = cashDonations + inKindIncomingValue;
-
+            const inKindValue = inventory.reduce((sum, item) => sum + ((parseFloat(item.remainingQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0);
+            const totalDonations = cashDonations + (inventory.reduce((sum, item) => sum + ((parseFloat(item.totalQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0));
             const actualAidDisbursed = (appData.expenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-            const scheduledMonthlyAid = (appData.cases || []).reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
-
-            const cashExpenses = (appData.expenses || []).filter(e => !e.inkind).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-            const currentCashBalance = cashDonations - cashExpenses;
-
-            const totalInKindValue = inventory.reduce((sum, item) => sum + ((parseFloat(item.remainingQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0);
-            const totalAssetsValue = currentCashBalance + totalInKindValue;
+            const currentCashBalance = cashDonations - (appData.expenses || []).filter(e => !e.inkind).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            const totalAssetsValue = currentCashBalance + inKindValue;
 
             html = `
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon icon-emerald"><i class="fas fa-hand-holding-usd"></i></div>
-                            <div class="stat-info">
-                                <h3>عمليات الوارد (نقدي + عيني)</h3>
-                                <p>${totalDonations.toLocaleString()} ج.م</p>
-                                <small style="color: #666;">(إجمالي التبرعات بكافة أنواعها)</small>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon icon-blue"><i class="fas fa-users"></i></div>
-                            <div class="stat-info">
-                                <h3>الحالات المسجلة</h3>
-                                <p>${(appData.cases || []).length} حالة</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon icon-orange" style="background: #fff7e6; color: #fa8c16;"><i class="fas fa-hand-holding-heart"></i></div>
-                            <div class="stat-info">
-                                <h3>إجمالي المنصرف (مساعدات)</h3>
-                                <p>${actualAidDisbursed.toLocaleString()} ج.م</p>
-                            </div>
-                        </div>
-                        <div class="stat-card" style="background: #e6fffa; border: 2px solid #1d4ed8;">
-                            <div class="stat-icon" style="background: #1d4ed8; color: white;"><i class="fas fa-money-bill-wave"></i></div>
-                            <div class="stat-info">
-                                <h3 style="color: #1a5c38;">الرصيد النقدي الفعلي</h3>
-                                 <p style="font-size: 1.5rem; font-weight: 800; color: #1d4ed8;">${currentCashBalance.toLocaleString()} ج.م</p>
-                                <small style="color: #1a5c38;">إجمالي الأصول (مع المخزن): ${totalAssetsValue.toLocaleString()} ج.م</small>
-                            </div>
-                        </div>
-                        <div class="stat-card" style="border-right-color: #e11d48;">
-                            <div class="stat-icon" style="background: #fff1f0; color: #e11d48;"><i class="fas fa-user-tag"></i></div>
-                            <div class="stat-info">
-                                <h3>منصرف حالات استثنائية</h3>
-                                <p style="color: #e11d48;">${(() => {
-                    const exceptionalNames = (appData.cases || []).filter(c => c.isExceptional).map(c => c.name);
-                    return (appData.expenses || [])
-                        .filter(e => exceptionalNames.includes(e.beneficiary))
-                        .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
-                        .toLocaleString();
-                })()} ج.م</p>
-                                <small>عدد الحالات: ${(appData.cases || []).filter(c => c.isExceptional).length}</small>
-                            </div>
+                <!-- PDF Export Button -->
+                <button class="btn-primary" style="position:fixed; bottom:20px; left:20px; z-index:1000; border-radius:50px; padding:15px 25px; box-shadow:0 10px 20px rgba(0,0,0,0.2); background: linear-gradient(135deg, #e11d48 0%, #be185d 100%); border:none; color:white; font-weight:bold;" onclick="window.exportToPDF('main-content', 'charity_dashboard_report.pdf')">
+                    <i class="fas fa-file-pdf"></i> تصدير التقرير كـ PDF
+                </button>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon icon-emerald"><i class="fas fa-hand-holding-usd"></i></div>
+                        <div class="stat-info">
+                            <h3>إجمالي الوارد (نقدي + عيني)</h3>
+                            <p>${totalDonations.toLocaleString()} ج.م</p>
                         </div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-blue"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h3>الحالات النشطة</h3>
+                            <p>${(appData.cases || []).length} حالة</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-orange"><i class="fas fa-hand-holding-heart"></i></div>
+                        <div class="stat-info">
+                            <h3>إجمالي المنصرف</h3>
+                            <p>${actualAidDisbursed.toLocaleString()} ج.م</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="border: 2px solid #1d4ed8;">
+                        <div class="stat-icon" style="background: #1d4ed8; color: white;"><i class="fas fa-wallet"></i></div>
+                        <div class="stat-info">
+                            <h3 style="color: #1d4ed8;">الرصيد النقدي المتاح</h3>
+                            <p style="font-size: 1.5rem; font-weight: 800; color: #1d4ed8;">${currentCashBalance.toLocaleString()} ج.م</p>
+                            <small>إجمالي الأصول (مع المخزن): ${totalAssetsValue.toLocaleString()} ج.م</small>
+                        </div>
+                    </div>
+                </div>
 
+                <!-- Interactive Charts Section -->
+                <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-top: 25px;">
+                    <div class="card" style="padding: 20px;">
+                        <h3 style="margin-bottom: 20px; color: var(--primary-color);"><i class="fas fa-chart-line"></i> منحنى المساعدات مقابل التبرعات (آخر 6 أشهر)</h3>
+                        <canvas id="aidTrendChart" style="max-height: 300px; width: 100%;"></canvas>
+                    </div>
+                    <div class="card" style="padding: 20px;">
+                        <h3 style="margin-bottom: 20px; color: var(--primary-color);"><i class="fas fa-chart-pie"></i> توزيع الحالات حسب التصنيف</h3>
+                        <canvas id="casesTypeChart" style="max-height: 300px; width: 100%;"></canvas>
+                    </div>
+                </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
-                        <div class="card">
-                            <div class="card-header" style="background: #fdf2f8; border-bottom: 2px solid #fbcfe8;">
-                                <h2 style="color: #be185d;"><i class="fas fa-boxes"></i> رصيد المخزن (التبرعات العينية)</h2>
-                            </div>
-                            <div style="padding: 10px; max-height: 400px; overflow-y: auto;">
-                                ${(appData.inventory && appData.inventory.length > 0) ? `
-                                            <table class="data-table" style="font-size: 0.85rem;">
-                                        <thead>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 25px;">
+                    <!-- Inventory Overview -->
+                    <div class="card">
+                        <div class="card-header" style="background: #fdf2f8; border-bottom: 2px solid #fbcfe8;">
+                            <h2 style="color: #be185d;"><i class="fas fa-boxes"></i> حالة المخزن (التبرعات العينية)</h2>
+                        </div>
+                        <div style="padding: 10px; max-height: 400px; overflow-y: auto;">
+                            ${(appData.inventory && appData.inventory.length > 0) ? `
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>الصنف</th>
+                                            <th>المتاح</th>
+                                            <th>إجمالي القيمة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${appData.inventory.map(item => `
                                             <tr>
-                                                <th>الصنف</th>
-                                                <th>المتاح</th>
-                                                <th>سعر الوحدة</th>
-                                                <th>إجمالي القيمة</th>
-                                                <th>الإجراءات</th>
+                                                <td style="font-weight: bold;">${item.name}</td>
+                                                <td style="color: #3730a3; font-weight: 800;">${item.remainingQuantity}</td>
+                                                <td style="color: #1d4ed8;">${(item.remainingQuantity * item.unitPrice).toLocaleString()} ج.م</td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${appData.inventory.map(item => `
-                                                <tr>
-                                                    <td style="font-weight: 700;">${item.name}</td>
-                                                    <td style="color: #3730a3; font-weight: 800;">${item.remainingQuantity}</td>
-                                                    <td style="color: #666;">${item.unitPrice.toFixed(1)} ج.م</td>
-                                                    <td style="color: #1d4ed8; font-weight: 700;">${(item.remainingQuantity * item.unitPrice).toLocaleString()} ج.م</td>
-                                                    <td style="text-align: center; display: flex; gap: 15px; justify-content: center; align-items: center;">
-                                                        <i class="fas fa-edit" style="color: #3b82f6; cursor: pointer; font-size: 0.9rem;" onclick="openInventoryModal(${item.id})"></i>
-                                                        <i class="fas fa-trash-alt" style="color: #e11d48; cursor: pointer; font-size: 0.9rem;" onclick="deleteInventoryItem(${item.id})"></i>
-                                                    </td>
-                                                </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                ` : '<p style="text-align: center; color: #999; padding: 20px;">لا يوجد رصيد عيني حالياً</p>'}
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-header">
-                                <h2>تحليل التبرعات حسب الجهة</h2>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr; gap: 10px; padding: 10px; max-height: 400px; overflow-y: auto;">
-                                ${dynamicCategories.map(cat => {
-                    const s = catStats[cat];
-                    if (s.donated === 0 && s.disbursed === 0) return ''; // Skip empty ones if any
-                    return `
-                                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-right: 4px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                                    <h4 style="margin-bottom: 10px; color: var(--primary-color); border-bottom: 1px solid #eee; padding-bottom: 5px;">${cat}</h4>
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
-                                        <span style="color: #666;">إجمالي التبرع:</span>
-                                        <span style="font-weight: 700; color: #1d4ed8;">${s.donated.toLocaleString()} ج.م</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
-                                        <span style="color: #666;">إجمالي المنصرف:</span>
-                                        <span style="font-weight: 700; color: #cf1322;">${s.disbursed.toLocaleString()} ج.م</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-top: 8px; border-top: 1px dashed #ccc; padding-top: 5px;">
-                                        <span style="font-weight: 700;">المتبقي في العهدة:</span>
-                                        <span style="font-weight: 800; color: ${s.balance >= 0 ? '#1d4ed8' : '#e11d48'};">${s.balance.toLocaleString()} ج.م</span>
-                                    </div>
-                                </div>
-                                `;
-                }).join('')}
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            ` : '<p style="text-align: center; color: #999; padding: 20px;">المخزن فارغ حالياً</p>'}
                         </div>
                     </div>
-                `;
+
+                    <!-- Category Breakdown -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>تحليل التبرعات حسب الجهة</h2>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 10px; padding: 15px; max-height: 400px; overflow-y: auto;">
+                            ${dynamicCategories.map(cat => {
+                                const s = catStats[cat];
+                                if (s.donated === 0 && s.disbursed === 0) return '';
+                                return `
+                                    <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border-right: 5px solid var(--primary-color); box-shadow: var(--shadow-soft);">
+                                        <h4 style="margin-bottom: 8px; color: var(--primary-color); font-weight: 800;">${cat}</h4>
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                            <span>إجمالي التبرع:</span>
+                                            <span style="font-weight: 700; color: #1d4ed8;">${s.donated.toLocaleString()} ج.م</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                            <span>إجمالي المنصرف:</span>
+                                            <span style="font-weight: 700; color: #e11d48;">${s.disbursed.toLocaleString()} ج.م</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 8px;">
+                                            <span style="font-weight: bold;">المتبقي:</span>
+                                            <span style="font-weight: 900; color: ${s.balance >= 0 ? '#059669' : '#e11d48'};">${s.balance.toLocaleString()} ج.م</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => window.initDashboardCharts(), 300);
             break;
 
         case 'statistics':
@@ -986,6 +1123,8 @@ window.renderPage = (page, contextId = null) => {
             const filter = window.currentSearchFilter || '';
             const orphanFilter = window.caseOrphanFilter || false;
             const ageFilter = window.caseAgeFilter || 'all';
+            const ageMin = window.caseAgeMin;
+            const ageMax = window.caseAgeMax;
 
             const filteredCases = appData.cases.filter(c => {
                 if (c.hidden || c.isExceptional) return false;
@@ -999,22 +1138,34 @@ window.renderPage = (page, contextId = null) => {
 
                 // Age filter
                 if (ageFilter !== 'all') {
-                    const ages = [];
+                    const allAges = [];
                     const mainAge = window.calculateAgeFromID(c.nationalId);
-                    if (mainAge !== null) ages.push(mainAge);
+                    if (mainAge !== null) allAges.push(mainAge);
                     if (c.members) {
                         c.members.forEach(m => {
                             const mAge = parseInt(m.age);
-                            if (!isNaN(mAge)) ages.push(mAge);
+                            if (!isNaN(mAge)) allAges.push(mAge);
                             const midAge = window.calculateAgeFromID(m.idNo);
-                            if (midAge !== null) ages.push(midAge);
+                            if (midAge !== null) allAges.push(midAge);
                         });
                     }
-                    if (ages.length === 0) return false;
-                    const match = ages.some(age => {
-                        if (ageFilter === 'under5') return age < 5;
-                        if (ageFilter === 'under10') return age < 10;
-                        if (ageFilter === 'above10') return age >= 10;
+                    if (allAges.length === 0) return false;
+                    const match = allAges.some(age => {
+                        if (ageFilter === 'under5')    return age < 5;
+                        if (ageFilter === 'under10')   return age < 10;
+                        if (ageFilter === 'under18')   return age < 18;
+                        if (ageFilter === 'above18')   return age >= 18;
+                        if (ageFilter === 'above30')   return age >= 30;
+                        if (ageFilter === 'above40')   return age >= 40;
+                        if (ageFilter === 'above50')   return age >= 50;
+                        if (ageFilter === 'above60')   return age >= 60;
+                        if (ageFilter === 'above65')   return age >= 65;
+                        if (ageFilter === 'above70')   return age >= 70;
+                        if (ageFilter === 'custom') {
+                            const mn = ageMin !== null ? ageMin : 0;
+                            const mx = ageMax !== null ? ageMax : 200;
+                            return age >= mn && age <= mx;
+                        }
                         return true;
                     });
                     if (!match) return false;
@@ -1048,14 +1199,38 @@ window.renderPage = (page, contextId = null) => {
                                     <span>الأيتام فقط <i class="fas fa-child"></i></span>
                                 </label>
 
-                                <div style="display: flex; align-items: center; gap: 10px; border-right: 1px solid #cbd5e1; padding-right: 15px; margin-right: 10px;">
-                                    <span style="color: #475569;">الفئة العمرية:</span>
-                                    <select class="office-input" style="width: auto; height: 32px; padding: 0 10px; border-radius: 6px;" onchange="setAgeFilter(this.value)">
-                                        <option value="all" ${ageFilter === 'all' ? 'selected' : ''}>الكل (كافة الأعمار)</option>
-                                        <option value="under5" ${ageFilter === 'under5' ? 'selected' : ''}>أقل من 5 سنوات</option>
-                                        <option value="under10" ${ageFilter === 'under10' ? 'selected' : ''}>أقل من 10 سنوات</option>
-                                        <option value="above10" ${ageFilter === 'above10' ? 'selected' : ''}>أكبر من 10 سنوات</option>
+                                <div style="display: flex; align-items: center; gap: 8px; border-right: 1px solid #cbd5e1; padding-right: 15px; margin-right: 10px; flex-wrap: wrap;">
+                                    <i class="fas fa-birthday-cake" style="color: #7c3aed;"></i>
+                                    <span style="color: #475569; font-weight: 600;">السن:</span>
+                                    <select id="age-filter-select" class="office-input" style="width: auto; min-width: 180px; height: 32px; padding: 0 10px; border-radius: 6px; border-color: ${ageFilter !== 'all' ? '#7c3aed' : '#cbd5e1'}; color: ${ageFilter !== 'all' ? '#7c3aed' : 'inherit'}; font-weight: ${ageFilter !== 'all' ? '700' : '400'};" onchange="setAgeFilter(this.value)">
+                                        <option value="all"    ${ageFilter === 'all'    ? 'selected' : ''}>🔘 الكل (كافة الأعمار)</option>
+                                        <optgroup label="── الأطفال ──">
+                                            <option value="under5"  ${ageFilter === 'under5'  ? 'selected' : ''}>أقل من 5 سنوات</option>
+                                            <option value="under10" ${ageFilter === 'under10' ? 'selected' : ''}>أقل من 10 سنوات</option>
+                                            <option value="under18" ${ageFilter === 'under18' ? 'selected' : ''}>أقل من 18 سنة (قاصر)</option>
+                                        </optgroup>
+                                        <optgroup label="── البالغون ──">
+                                            <option value="above18" ${ageFilter === 'above18' ? 'selected' : ''}>18 سنة فأكثر</option>
+                                            <option value="above30" ${ageFilter === 'above30' ? 'selected' : ''}>30 سنة فأكثر</option>
+                                            <option value="above40" ${ageFilter === 'above40' ? 'selected' : ''}>40 سنة فأكثر</option>
+                                        </optgroup>
+                                        <optgroup label="── كبار السن ──">
+                                            <option value="above50" ${ageFilter === 'above50' ? 'selected' : ''}>⭐ 50 سنة فأكثر</option>
+                                            <option value="above60" ${ageFilter === 'above60' ? 'selected' : ''}>60 سنة فأكثر</option>
+                                            <option value="above65" ${ageFilter === 'above65' ? 'selected' : ''}>65 سنة فأكثر (سن التقاعد)</option>
+                                            <option value="above70" ${ageFilter === 'above70' ? 'selected' : ''}>70 سنة فأكثر</option>
+                                        </optgroup>
+                                        <optgroup label="── نطاق مخصص ──">
+                                            <option value="custom" ${ageFilter === 'custom' ? 'selected' : ''}>✏️ نطاق مخصص (من ... إلى ...)</option>
+                                        </optgroup>
                                     </select>
+                                    <div id="custom-age-range" style="display: ${ageFilter === 'custom' ? 'flex' : 'none'}; align-items: center; gap: 6px; background: #faf5ff; padding: 4px 10px; border-radius: 8px; border: 1px solid #7c3aed;">
+                                        <span style="color: #7c3aed; font-size: 0.8rem; font-weight: 700;">من:</span>
+                                        <input type="number" id="age-min-input" min="0" max="120" placeholder="0" value="${ageMin !== null ? ageMin : ''}" style="width: 55px; height: 28px; border: 1px solid #7c3aed; border-radius: 5px; text-align: center; font-size: 0.9rem; font-weight: 700; color: #7c3aed; padding: 0 4px;" oninput="window.caseAgeMin = this.value ? parseInt(this.value) : null">
+                                        <span style="color: #7c3aed; font-size: 0.8rem; font-weight: 700;">إلى:</span>
+                                        <input type="number" id="age-max-input" min="0" max="120" placeholder="120" value="${ageMax !== null ? ageMax : ''}" style="width: 55px; height: 28px; border: 1px solid #7c3aed; border-radius: 5px; text-align: center; font-size: 0.9rem; font-weight: 700; color: #7c3aed; padding: 0 4px;" oninput="window.caseAgeMax = this.value ? parseInt(this.value) : null">
+                                        <button onclick="renderPage('cases')" style="height: 28px; padding: 0 10px; background: #7c3aed; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.8rem; font-weight: 700;"><i class="fas fa-search"></i> تطبيق</button>
+                                    </div>
                                 </div>
 
                                 <div style="margin-right: auto; color: #64748b; font-size: 0.8rem;">
@@ -1979,6 +2154,51 @@ window.renderPage = (page, contextId = null) => {
         case 'settings':
             pageTitle.innerText = 'إعدادات النظام والأمان';
             html = `
+                    <!-- ===== STAFF MODE CARD ===== -->
+                    <div class="card" style="border-top: 4px solid ${window.staffMode ? '#f59e0b' : '#6366f1'}; margin-bottom: 20px;">
+                        <div class="card-header" style="background: ${window.staffMode ? '#fffbeb' : '#f8fafc'};">
+                            <h2 style="color: ${window.staffMode ? '#b45309' : '#4338ca'};"><i class="fas fa-user-tie"></i> وضع الموظفين (السكرتارية)</h2>
+                            <span class="status-badge" style="background: ${window.staffMode ? '#fef3c7' : '#ede9fe'}; color: ${window.staffMode ? '#b45309' : '#6d28d9'}; font-size: 0.9rem; padding: 6px 16px; border-radius: 20px; font-weight: 800;">
+                                ${window.staffMode ? '🔒 مُفعَّل الآن' : '🔓 غير مُفعَّل'}
+                            </span>
+                        </div>
+                        <div style="padding: 25px;">
+                            <div style="background: ${window.staffMode ? '#fef3c7' : '#ede9fe'}; border: 1px solid ${window.staffMode ? '#fcd34d' : '#c4b5fd'}; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                                <p style="margin: 0 0 10px; font-weight: 700; color: ${window.staffMode ? '#92400e' : '#4c1d95'}; font-size: 1rem;">
+                                    <i class="fas fa-info-circle"></i> ما هو وضع الموظفين؟
+                                </p>
+                                <ul style="margin: 0; padding-right: 20px; color: #64748b; line-height: 2; font-size: 0.9rem;">
+                                    <li>✅ يتيح الوصول فقط لـ <strong>إدارة الحالات</strong> و<strong>الحالات الاستثنائية</strong> و<strong>التبرعات</strong></li>
+                                    <li>🚫 يخفي: الرئيسية، الإحصائيات، المصروفات، المتطوعين، التقارير، الإفادات، الإعدادات</li>
+                                    <li>🔑 لإلغاء التفعيل مطلوب كلمة السر: <code style="background:#1e293b; color:#f1f5f9; padding:2px 8px; border-radius:4px;">0000</code></li>
+                                </ul>
+                            </div>
+                            ${window.staffMode ? `
+                            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 220px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 15px; text-align: center;">
+                                    <i class="fas fa-lock" style="font-size: 2rem; color: #dc2626; margin-bottom: 8px;"></i>
+                                    <p style="margin: 0; font-weight: 700; color: #dc2626;">وضع الموظفين مُفعَّل</p>
+                                    <p style="margin: 5px 0 0; font-size: 0.8rem; color: #991b1b;">الصفحات الحساسة مقفولة</p>
+                                </div>
+                                <button onclick="window.disableStaffMode()" class="btn-primary" style="background: linear-gradient(135deg, #dc2626, #b91c1c); padding: 14px 30px; font-size: 1rem; font-weight: 800;">
+                                    <i class="fas fa-unlock-alt"></i> إلغاء وضع الموظفين (تطلب كلمة السر)
+                                </button>
+                            </div>
+                            ` : `
+                            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 220px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 15px; text-align: center;">
+                                    <i class="fas fa-unlock" style="font-size: 2rem; color: #16a34a; margin-bottom: 8px;"></i>
+                                    <p style="margin: 0; font-weight: 700; color: #16a34a;">وضع المدير مُفعَّل</p>
+                                    <p style="margin: 5px 0 0; font-size: 0.8rem; color: #166534;">جميع الصفحات متاحة</p>
+                                </div>
+                                <button onclick="window.enableStaffMode()" class="btn-primary" style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 14px 30px; font-size: 1rem; font-weight: 800;">
+                                    <i class="fas fa-user-lock"></i> تفعيل وضع الموظفين
+                                </button>
+                            </div>
+                            `}
+                        </div>
+                    </div>
+
                     <div class="card" style="border-top: 4px solid #6366f1;">
                         <div class="card-header">
                             <h2><i class="fas fa-database"></i> إدارة البيانات والنسخ الاحتياطي</h2>
@@ -2859,6 +3079,12 @@ window.addNewDonation = () => {
 
     saveData();
     renderPage('donations');
+
+    // WhatsApp Notification: Thank You
+    if (phone && phone.length >= 10) {
+        const msg = `شكراً جزيلاً لك أستاذ/ة ${donor} على تبرعك الكريم بمبلغ ${amount} ج.م لصالح ${appData.charityName || 'جمعية الخير'}. جزاكم الله خيراً.`;
+        window.sendWhatsAppMessage(phone, msg);
+    }
 };
 
 window.prepareEditDonation = (id) => {
@@ -3436,6 +3662,13 @@ window.addNewAidRecord = () => {
 
         saveData();
         renderPage('expenses');
+
+        // WhatsApp Notification: Aid Collection
+        const caseObj = appData.cases.find(c => (nationalId && c.nationalId === nationalId) || c.name === beneficiary);
+        if (caseObj && caseObj.phone && caseObj.phone.length >= 10) {
+            const msg = `نحيطكم علماً أستاذ/ة ${beneficiary} بأنه تم تسجيل صرف مساعدة لكم بقيمة ${amount} ${mode === 'inkind' ? 'عيني' : 'ج.م'} بتاريخ ${date}. مع تحيات ${appData.charityName || 'جمعية الخير'}.`;
+            window.sendWhatsAppMessage(caseObj.phone, msg);
+        }
     } else {
         alert('يرجى اختيار اسم المستفيد والمبلغ/الكمية');
     }
@@ -4265,6 +4498,8 @@ window.calculateAgeFromID = (nationalId) => {
 window.currentSearchFilter = '';
 window.caseOrphanFilter = false;
 window.caseAgeFilter = 'all';
+window.caseAgeMin = null;  // custom range min
+window.caseAgeMax = null;  // custom range max
 const globalSearch = document.getElementById('global-search');
 const AVAILABLE_CATEGORIES = [
     "المرضى", "زواج متعسر", "الغارمين", "الأيتام", "مستفيدي صك الخير",
@@ -4785,6 +5020,8 @@ window.clearSearch = () => {
     window.currentSearchFilter = '';
     window.caseOrphanFilter = false;
     window.caseAgeFilter = 'all';
+    window.caseAgeMin = null;
+    window.caseAgeMax = null;
     if (globalSearch) globalSearch.value = '';
     renderPage('cases');
 };
@@ -4796,10 +5033,72 @@ window.toggleOrphanFilter = (checked) => {
 
 window.setAgeFilter = (val) => {
     window.caseAgeFilter = val;
+    // Reset custom range when switching to a non-custom filter
+    if (val !== 'custom') {
+        window.caseAgeMin = null;
+        window.caseAgeMax = null;
+    }
     renderPage('cases');
 };
 
 window.renderPage = renderPage;
+
+
+// =============================================
+// ---   STAFF MODE FUNCTIONS                ---
+// =============================================
+
+window.applyStaffModeSidebar = function() {
+    var HIDDEN_IN_STAFF = ['dashboard', 'statistics', 'expenses', 'volunteers', 'reports', 'affidavit', 'settings', 'master'];
+    document.querySelectorAll('.sidebar-nav li[data-page]').forEach(function(li) {
+        var page = li.getAttribute('data-page');
+        if (window.staffMode && HIDDEN_IN_STAFF.includes(page)) {
+            li.style.display = 'none';
+        } else {
+            li.style.display = '';
+        }
+    });
+    var badge = document.getElementById('staff-mode-badge');
+    if (window.staffMode) {
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'staff-mode-badge';
+            badge.innerHTML = '<i class="fas fa-user-tie"></i> وضع الموظفين';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:#f59e0b;color:#1c1917;font-size:0.75rem;font-weight:800;padding:4px 12px;border-radius:20px;margin-right:10px;cursor:pointer;';
+            badge.title = 'انقر لإلغاء وضع الموظفين';
+            badge.onclick = function() { window.disableStaffMode(); };
+            var headerLeft = document.querySelector('.header-left');
+            if (headerLeft) headerLeft.appendChild(badge);
+        }
+    } else {
+        if (badge) badge.remove();
+    }
+};
+
+window.enableStaffMode = function() {
+    var msg = 'تفعيل وضع الموظفين\n\nعند التفعيل: الرئيسية، الإحصائيات، المصروفات، المتطوعين، التقارير، الإفادات، الإعدادات ستكون مخفية.\nلإلغاء التفعيل ستحتاج كلمة السر: 0000\n\nهل تريد المتابعة؟';
+    if (confirm(msg)) {
+        window.staffMode = true;
+        localStorage.setItem('staff_mode', 'true');
+        window.applyStaffModeSidebar();
+        renderPage('cases');
+        setTimeout(function() { alert('تم تفعيل وضع الموظفين بنجاح! الصفحات الحساسة الآن مقفولة.'); }, 200);
+    }
+};
+
+window.disableStaffMode = function() {
+    var pass = prompt('ادخل كلمة السر لإلغاء وضع الموظفين:');
+    if (pass === null) return;
+    if (pass !== window.STAFF_MODE_PASSWORD) {
+        alert('كلمة السر غير صحيحة! كلمة السر هي: 0000');
+        return;
+    }
+    window.staffMode = false;
+    localStorage.setItem('staff_mode', 'false');
+    window.applyStaffModeSidebar();
+    renderPage('settings');
+    setTimeout(function() { alert('تم إلغاء وضع الموظفين. جميع الصفحات متاحة الآن.'); }, 200);
+};
 
 // --- ARCHIVE / HIDE LOGIC ---
 window.hideCase = (id) => {
@@ -6887,3 +7186,109 @@ window.calculateAgeFromID = (id, targetId = null) => {
 
 
 
+// --- INTERACTIVE CHARTS ---
+window.initDashboardCharts = () => {
+    const aidCtx = document.getElementById('aidTrendChart')?.getContext('2d');
+    const typeCtx = document.getElementById('casesTypeChart')?.getContext('2d');
+
+    if (!aidCtx || !typeCtx) return;
+
+    const months = [];
+    const donationData = [];
+    const aidData = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthLabel = d.toLocaleString('ar-EG', { month: 'short' });
+        months.push(monthLabel);
+
+        const m = d.getMonth();
+        const y = d.getFullYear();
+
+        const mDonations = appData.donations.filter(don => {
+            const donDate = new Date(don.date);
+            return donDate.getMonth() === m && donDate.getFullYear() === y;
+        }).reduce((sum, don) => sum + (parseFloat(don.amount) || 0), 0);
+
+        const mAid = (appData.expenses || []).filter(exp => {
+            const expDate = new Date(exp.date);
+            return expDate.getMonth() === m && expDate.getFullYear() === y;
+        }).reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+
+        donationData.push(mDonations);
+        aidData.push(mAid);
+    }
+
+    if (window.aidChartInstance) window.aidChartInstance.destroy();
+    window.aidChartInstance = new Chart(aidCtx, {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [
+                {
+                    label: '????????',
+                    data: donationData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: '?????????',
+                    data: aidData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top', labels: { font: { family: 'Cairo' } } } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const typeCounts = {};
+    appData.cases.forEach(c => {
+        const types = (c.type || '??? ????').split(' - ');
+        types.forEach(t => {
+            typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+    });
+
+    if (window.typeChartInstance) window.typeChartInstance.destroy();
+    window.typeChartInstance = new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(typeCounts),
+            datasets: [{
+                data: Object.values(typeCounts),
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { family: 'Cairo' } } }
+            }
+        }
+    });
+};
+
+window.exportToPDF = (elementId, filename = 'report.pdf') => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    html2canvas(element).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jspdf.jsPDF();
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(filename);
+    });
+};

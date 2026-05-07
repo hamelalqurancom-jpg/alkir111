@@ -28,6 +28,62 @@
     --shadow-lux: 0 25px 50px -12px rgba(15, 23, 42, 0.08);
 }
 
+/* Dark Mode Theme */
+body.dark-theme {
+    --primary-color: #3b82f6;
+    --bg-gradient: radial-gradient(circle at top left, #0f172a 0%, #1e293b 50%, #020617 100%);
+    --sidebar-dark-bg: #020617;
+    --card-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --shadow-soft: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+    --shadow-lux: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    --white: #1e293b;
+}
+
+body.dark-theme .top-header,
+body.dark-theme .ribbon,
+body.dark-theme .status-bar {
+    background: rgba(15, 23, 42, 0.9) !important;
+    border-color: var(--border-color);
+}
+
+body.dark-theme .stat-card {
+    background: #1e293b !important;
+    border-color: var(--border-color);
+}
+
+body.dark-theme .search-box {
+    background: rgba(30, 41, 59, 0.8);
+    color: white;
+}
+
+body.dark-theme .search-box input {
+    color: white;
+}
+
+body.dark-theme .zoom-controls {
+    background: #0f172a;
+    border-color: var(--border-color);
+}
+
+body.dark-theme .data-table td {
+    color: #f8fafc;
+}
+
+body.dark-theme .modal-card {
+    background: #1e293b;
+    color: white;
+}
+
+body.dark-theme .office-input {
+    background: #0f172a;
+    color: white;
+    border-color: var(--border-color);
+}
+
+
 * {
     margin: 0;
     padding: 0;
