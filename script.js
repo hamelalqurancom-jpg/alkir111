@@ -738,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.staffMode = localStorage.getItem('staff_mode') === 'true';
         window.STAFF_MODE_PASSWORD = '0000';
         // Pages allowed in staff mode
-        window.STAFF_ALLOWED_PAGES = ['cases', 'exceptional', 'donations'];
+        window.STAFF_ALLOWED_PAGES = ['cases', 'exceptional', 'donations', 'affidavit'];
 
         if (splashScreen) splashScreen.style.display = 'flex';
 
@@ -2168,8 +2168,8 @@ window.renderPage = (page, contextId = null) => {
                                     <i class="fas fa-info-circle"></i> ما هو وضع الموظفين؟
                                 </p>
                                 <ul style="margin: 0; padding-right: 20px; color: #64748b; line-height: 2; font-size: 0.9rem;">
-                                    <li>✅ يتيح الوصول فقط لـ <strong>إدارة الحالات</strong> و<strong>الحالات الاستثنائية</strong> و<strong>التبرعات</strong></li>
-                                    <li>🚫 يخفي: الرئيسية، الإحصائيات، المصروفات، المتطوعين، التقارير، الإفادات، الإعدادات</li>
+                                    <li>✅ يتيح الوصول فقط لـ <strong>إدارة الحالات</strong> و<strong>الحالات الاستثنائية</strong> و<strong>التبرعات</strong> و<strong>نظام الإفادة</strong></li>
+                                    <li>🚫 يخفي: الرئيسية، الإحصائيات، المصروفات، المتطوعين، التقارير، الإعدادات</li>
                                     <li>🔑 لإلغاء التفعيل مطلوب كلمة السر: <code style="background:#1e293b; color:#f1f5f9; padding:2px 8px; border-radius:4px;">0000</code></li>
                                 </ul>
                             </div>
@@ -5049,7 +5049,7 @@ window.renderPage = renderPage;
 // =============================================
 
 window.applyStaffModeSidebar = function() {
-    var HIDDEN_IN_STAFF = ['dashboard', 'statistics', 'expenses', 'volunteers', 'reports', 'affidavit', 'settings', 'master'];
+    var HIDDEN_IN_STAFF = ['dashboard', 'statistics', 'expenses', 'volunteers', 'reports', 'settings', 'master'];
     document.querySelectorAll('.sidebar-nav li[data-page]').forEach(function(li) {
         var page = li.getAttribute('data-page');
         if (window.staffMode && HIDDEN_IN_STAFF.includes(page)) {
