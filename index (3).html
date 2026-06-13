@@ -112,6 +112,21 @@
                     <i class="fas fa-lock"></i>
                     <input type="password" id="reg-password" placeholder="كلمة المرور (6 أرقام على الأقل)...">
                 </div>
+                <div class="input-group">
+                    <i class="fas fa-bell"></i>
+                    <input type="text" id="reg-notification-number" placeholder="رقم الإشعار (اختياري)...">
+                </div>
+                <!-- Logo Upload -->
+                <div id="reg-logo-upload-area" onclick="document.getElementById('reg-logo-input').click()"
+                    style="border: 2px dashed #6366f1; border-radius: 12px; padding: 18px 10px; text-align: center; cursor: pointer; margin-bottom: 14px; transition: background 0.2s; background: #f5f3ff;">
+                    <div id="reg-logo-preview-wrap" style="display:none; margin-bottom:8px;">
+                        <img id="reg-logo-preview" src="" style="height:60px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+                    </div>
+                    <i class="fas fa-image" style="font-size:1.6rem; color:#6366f1; margin-bottom:6px;"></i>
+                    <p id="reg-logo-label" style="margin:4px 0 0; font-size:0.85rem; color:#6366f1; font-weight:700;">انقر لرفع شعار (لوجو) الجمعية</p>
+                    <p style="margin:2px 0 0; font-size:0.75rem; color:#999;">PNG أو JPG - سيظهر في جميع مستندات الطباعة</p>
+                    <input type="file" id="reg-logo-input" accept="image/*" style="display:none" onchange="window.previewRegLogo(this)">
+                </div>
                 <div id="register-error"
                     style="color: #e11d48; font-size: 0.85rem; text-align: center; margin-bottom: 15px; display: none; font-weight: 700;">
                 </div>

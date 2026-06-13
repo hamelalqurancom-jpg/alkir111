@@ -1787,3 +1787,33 @@ body {
 .dash-toggle-switch.active .dash-toggle-knob {
     transform: translateX(-16px);
 }
+
+/* ============================================================
+   CHARITY LOGO UPLOAD (Register & Settings)
+============================================================ */
+#reg-logo-upload-area:hover {
+    background: #ede9fe !important;
+    border-color: #4f46e5 !important;
+}
+
+.logo-upload-settings {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 16px;
+    border: 2px dashed #6366f1;
+    border-radius: 12px;
+    cursor: pointer;
+    background: #f5f3ff;
+    transition: background 0.2s;
+    margin-top: 10px;
+}
+.logo-upload-settings:hover {
+    background: #ede9fe;
+}
+.logo-upload-settings img {
+    height: 55px;
+    border-radius: 8px;
+    object-fit: contain;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}

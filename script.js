@@ -42,8 +42,58 @@ window.updateAppBranding = (name) => {
     if (headerName) headerName.innerText = name;
     if (pageTitle) pageTitle.innerText = `${name} | لوحة التحكم`;
 
+    // Apply charity logo
+    window.applyCharityLogo();
+
     console.log(`Branding updated: ${name}`);
 };
+// =============================================
+// ---   CHARITY LOGO SYSTEM               ---
+// =============================================
+
+// Preview logo during registration
+window.previewRegLogo = function(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        window._pendingLogoBase64 = base64;
+        const preview = document.getElementById('reg-logo-preview');
+        const wrap = document.getElementById('reg-logo-preview-wrap');
+        const label = document.getElementById('reg-logo-label');
+        if (preview) preview.src = base64;
+        if (wrap) wrap.style.display = 'block';
+        if (label) label.innerText = '✅ تم اختيار الشعار - انقر لتغييره';
+    };
+    reader.readAsDataURL(file);
+};
+
+// Get logo: from localStorage (charity-specific) or fallback to logo.png
+window.getCharityLogo = function() {
+    const id = localStorage.getItem('logged_charity_id');
+    if (id) {
+        const saved = localStorage.getItem('charity_logo_' + id);
+        if (saved) return saved;
+    }
+    return 'logo.png';
+};
+
+// Save logo for a given charity id
+window.saveCharityLogo = function(charityId, base64) {
+    if (!charityId || !base64) return;
+    localStorage.setItem('charity_logo_' + charityId, base64);
+};
+
+// Update all logo elements in the app header/sidebar if any
+window.applyCharityLogo = function() {
+    const logo = window.getCharityLogo();
+    document.querySelectorAll('.charity-logo-img').forEach(img => {
+        img.src = logo;
+    });
+};
+
+
 
 window.showRegister = () => {
     document.getElementById('login-form').style.display = 'none';
@@ -108,13 +158,22 @@ window.handleRegister = async () => {
         }
 
         // Save profile to Firestore (Custom Auth)
+        const notificationNumber = (document.getElementById('reg-notification-number') || {}).value?.trim() || '';
+
         await charityRef.set({
             charityName,
             ownerName,
             phone,
             password, // Note: In a real app, hash this!
+            notificationNumber,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        // Save logo locally (base64) if uploaded
+        if (window._pendingLogoBase64) {
+            window.saveCharityLogo(phone, window._pendingLogoBase64);
+            window._pendingLogoBase64 = null;
+        }
 
         // Initialize empty data for this user
         const emptyData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [] };
@@ -2204,7 +2263,41 @@ window.renderPage = (page, contextId = null) => {
 
         case 'settings':
             pageTitle.innerText = 'إعدادات النظام والأمان';
+            const settingsLogoSrc = window.getCharityLogo ? window.getCharityLogo() : 'logo.png';
+            const settingsNotifNum = localStorage.getItem('charity_notification_number_' + (localStorage.getItem('logged_charity_id') || '')) || '';
             html = `
+                    <!-- ===== CHARITY IDENTITY CARD ===== -->
+                    <div class="card" style="border-top: 4px solid #6366f1; margin-bottom: 20px;">
+                        <div class="card-header" style="background: #f5f3ff;">
+                            <h2 style="color: #4338ca;"><i class="fas fa-building"></i> هوية الجمعية في المستندات</h2>
+                        </div>
+                        <div style="padding: 25px; display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
+                            <!-- Logo Section -->
+                            <div style="flex:1; min-width:220px;">
+                                <p style="font-weight:800; color:#374151; margin-bottom:10px;"><i class="fas fa-image" style="color:#6366f1;"></i> شعار الجمعية (يظهر في الطباعة)</p>
+                                <div class="logo-upload-settings" onclick="document.getElementById('settings-logo-input').click()">
+                                    <img id="settings-logo-preview" src="${settingsLogoSrc}" class="charity-logo-img">
+                                    <div>
+                                        <p style="margin:0; font-weight:700; color:#4338ca; font-size:0.9rem;">انقر لتغيير الشعار</p>
+                                        <p style="margin:4px 0 0; font-size:0.78rem; color:#6b7280;">PNG أو JPG - يُحفظ تلقائياً على جهازك</p>
+                                    </div>
+                                    <input type="file" id="settings-logo-input" accept="image/*" style="display:none" onchange="window.changeLogoFromSettings(this)">
+                                </div>
+                            </div>
+                            <!-- Notification Number Section -->
+                            <div style="flex:1; min-width:220px;">
+                                <p style="font-weight:800; color:#374151; margin-bottom:10px;"><i class="fas fa-bell" style="color:#f59e0b;"></i> رقم الإشعار</p>
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <input type="text" id="settings-notif-number" class="office-input compact-input" value="${settingsNotifNum}" placeholder="رقم الإشعار..." style="flex:1;">
+                                    <button class="btn-primary" style="padding:10px 18px; white-space:nowrap;" onclick="window.saveNotifNumber()">
+                                        <i class="fas fa-save"></i> حفظ
+                                    </button>
+                                </div>
+                                <p style="margin:8px 0 0; font-size:0.78rem; color:#6b7280;">يظهر في ترويسة المستندات الرسمية المطبوعة</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- ===== STAFF MODE CARD ===== -->
                     <div class="card" style="border-top: 4px solid ${window.staffMode ? '#f59e0b' : '#6366f1'}; margin-bottom: 20px;">
                         <div class="card-header" style="background: ${window.staffMode ? '#fffbeb' : '#f8fafc'};">
@@ -4827,7 +4920,7 @@ window.generateReport = () => {
                             <h2 style="color: #1d4ed8; margin: 0;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                         </div>
-                        <img src="logo.png" style="height: 60px;">
+                        <img src="${window.getCharityLogo()}" style="height: 60px;">
                     </div>
                     <div style="text-align: center; margin-bottom: 20px;">
                         <h3>${title}</h3>
@@ -4887,7 +4980,7 @@ window.generateReport = () => {
                             <h2 style="color: #1d4ed8; margin: 0;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                         </div>
-                        <img src="logo.png" style="height: 60px;">
+                        <img src="${window.getCharityLogo()}" style="height: 60px;">
                     </div>
                     <div style="text-align: center; margin-bottom: 20px;">
                         <h3>${title}</h3>
@@ -4946,7 +5039,7 @@ window.generateReport = () => {
     <div dir = "rtl" style = "font-family: 'Cairo', sans-serif; padding: 5mm; color: #000; width: 100%; box-sizing: border-box;" >
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; height: 10vh;">
                         <div style="text-align: right; flex: 2; display: flex; align-items: center; gap: 15px;">
-                            <img src="logo.png" style="height: 50px;">
+                            <img src="${window.getCharityLogo()}" style="height: 50px;">
                             <div>
                                 <h2 style="margin: 0; font-size: 1.2rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h2>
                                 <p style="margin: 0; font-size: 0.8rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
@@ -5012,7 +5105,7 @@ window.generateReport = () => {
                             <h2 style="color: #e11d48; margin: 0; font-size: 1.4rem;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.9rem; font-weight: 800;">سجل الحالات الاستثنائية والطارئة</p>
                         </div>
-                        <img src="logo.png" style="height: 65px;">
+                        <img src="${window.getCharityLogo()}" style="height: 65px;">
                         <div style="text-align: left; flex: 1; font-size: 0.85rem;">
                              <p style="margin: 0;">تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</p>
                         </div>
@@ -5186,7 +5279,7 @@ window.openDetailsModal = (id) => {
                         <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
                     </div>
                     <div style="flex: 1; text-align: center;">
-                         <img src="logo.png" style="height: 70px;">
+                         <img src="${window.getCharityLogo()}" style="height: 70px;">
                     </div>
                     <div style="flex: 1; text-align: left;">
                          <div style="border: 1px solid #000; padding: 10px; font-weight: bold; font-size: 0.75rem; text-align: center; border-radius: 4px;">ختم الجمعية</div>
@@ -5592,7 +5685,7 @@ window.generateCardHTML = (c, isBulk = false) => {
                 <!-- Premium Header -->
                 <div style="background: linear-gradient(135deg, #11221a 0%, #1d4ed8 100%); height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 3px solid #edaf2e; position: relative; z-index: 10;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <img src="logo.png" style="height: 35px; filter: brightness(0) invert(1);">
+                        <img src="${window.getCharityLogo()}" style="height: 35px; filter: brightness(0) invert(1);">
                         <div style="color: #fff;">
                             <div style="font-weight: 900; font-size: 0.8rem; line-height: 1.1;">${window.charityName || 'جمعية الخير'}</div>
                         </div>
@@ -5953,7 +6046,7 @@ function buildOrmanHTML(cases) {
                         <p style="margin:0">التاريخ: ${document.getElementById('report-print-date')?.value || new Date().toLocaleDateString('ar-EG')}</p>
                     </div>
                     <div style="text-align: center; flex: 1;">
-                         <img src="logo.png" style="height: 70px; margin-bottom: 5px;">
+                         <img src="${window.getCharityLogo()}" style="height: 70px; margin-bottom: 5px;">
                          <h2 style="margin: 0; font-size: 1.4rem; color:#1d4ed8;">جمعية الأورمان</h2>
                     </div>
                     <div style="text-align: left; flex: 1;">
@@ -6044,7 +6137,7 @@ function buildRawabitHTML(cases, institutionName, benefitType, selectedCols = ['
             <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 5mm; color: #000; border: 2px solid #000; min-height: 98vh; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; height: 12vh;">
                     <div style="text-align: right; flex: 1.5; display: flex; align-items: center; gap: 15px;">
-                         <img src="logo.png" style="height: 60px;">
+                         <img src="${window.getCharityLogo()}" style="height: 60px;">
                          <div>
                             <div style="font-weight: 900; font-size: 1.25rem; color: #1d4ed8;">${institutionName || 'بوابتك للخير'}</div>
                             <div style="font-size: 0.9rem; font-weight: 800; margin-top: 5px;">${window.charityName || 'جمعية الخير'}</div>
@@ -6108,7 +6201,7 @@ function buildAssociationOfficialHTML(cases) {
             <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 5mm; color: #000; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #000; padding-bottom: 10px; margin-bottom: 20px; height: 12vh;">
                     <div style="flex: 2; display: flex; align-items: center; gap: 15px;">
-                        <img src="logo.png" style="height: 65px;">
+                        <img src="${window.getCharityLogo()}" style="height: 65px;">
                         <div>
                             <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.95rem; font-weight: 600;">مشهرة برقم 1899 لسنة 2012</p>
@@ -6191,7 +6284,7 @@ function buildMisrElKheirHTML(cases) {
                                 <div style="font-weight: 900; font-size: 0.95rem;">${window.charityName || 'جمعية الخير'}</div>
                                 <div style="font-size: 0.75rem; font-weight: 700;">مشهرة برقم 1899 لسنة 2012</div>
                             </div>
-                            <img src="logo.png" style="height: 55px;">
+                            <img src="${window.getCharityLogo()}" style="height: 55px;">
                         </div>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; border: 2.5px solid #000; text-align: center;">
@@ -6241,7 +6334,7 @@ function buildDonationListHTML() {
             <div dir="rtl" style="font-family: 'Cairo', sans-serif; padding: 5mm; color: #000; width: 100%; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
                     <div style="text-align: right; flex: 2; display: flex; align-items: center; gap: 15px;">
-                        <img src="logo.png" style="height: 60px;">
+                        <img src="${window.getCharityLogo()}" style="height: 60px;">
                         <div>
                             <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800;">${window.charityName || 'جمعية الخير'}</h2>
                             <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">سجل المقبوضات (التبرعات)</p>
@@ -6283,7 +6376,7 @@ function generateDonationReceipt(d, template) {
                         <p style="margin: 0; font-size: 0.85rem; font-weight: 600;">المشهرة برقم 1899 لسنة 2012</p>
                         <p style="margin: 5px 0; font-weight: bold;">إيصال استلام تبرع رقم: ${d.id}</p>
                     </div>
-                    <img src="logo.png" style="height: 60px;">
+                    <img src="${window.getCharityLogo()}" style="height: 60px;">
                 </div>
                 <hr style="border: 1px solid ${color};">
                 <div style="margin: 30px 0; line-height: 2;">
@@ -6693,7 +6786,7 @@ window.printAffidavitDoc = (aff) => {
                         <h1 style="color: #1d4ed8; margin: 0; font-size: 2rem; font-weight: 900;">${window.charityName || 'جمعية الخير'}</h1>
                         <p style="margin: 0; font-size: 1rem; font-weight: 700;">مشهرة برقم 1899 لسنة 2012</p>
                     </div>
-                    <img src="logo.png" style="height: 80px;">
+                    <img src="${window.getCharityLogo()}" style="height: 80px;">
                 </div>
                 <div style="text-align: center; margin-bottom: 30px;">
                     <h3 style="margin: 0; font-weight: 700;">وثيقة إفادة استعلام رسمية</h3>
@@ -6958,7 +7051,7 @@ window.renderCategoryRegister = (category) => {
                                 <h1 style="color: #1d4ed8; margin: 0; font-size: 2rem;">${window.charityName || 'جمعية الخير'}</h1>
                                 <p style="margin: 5px 0 0; font-weight: 600;">كشف حالات تصنيف: ${category}</p>
                             </div>
-                            <img src="logo.png" style="height: 80px;">
+                            <img src="${window.getCharityLogo()}" style="height: 80px;">
                         </div>
                     </div>
 
@@ -7365,4 +7458,39 @@ window.toggleDashSection = function(sectionId, labelEl) {
         if (labelEl) labelEl.style.opacity = '1';
     }
     window.dashSectionStates[sectionId] = !isActive;
+};
+
+// =============================================
+// ---   LOGO & NOTIFICATION NUMBER MGMT   ---
+// =============================================
+
+window.changeLogoFromSettings = function(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        const id = localStorage.getItem('logged_charity_id');
+        if (id) {
+            window.saveCharityLogo(id, base64);
+            // Update all logo imgs on page
+            document.querySelectorAll('.charity-logo-img, #settings-logo-preview').forEach(img => {
+                img.src = base64;
+            });
+            alert('✅ تم تحديث شعار الجمعية بنجاح! سيظهر في جميع المستندات المطبوعة.');
+        }
+    };
+    reader.readAsDataURL(file);
+};
+
+window.saveNotifNumber = function() {
+    const val = (document.getElementById('settings-notif-number') || {}).value?.trim() || '';
+    const id = localStorage.getItem('logged_charity_id') || '';
+    localStorage.setItem('charity_notification_number_' + id, val);
+    alert('✅ تم حفظ رقم الإشعار: ' + (val || '(فارغ)'));
+};
+
+window.getNotifNumber = function() {
+    const id = localStorage.getItem('logged_charity_id') || '';
+    return localStorage.getItem('charity_notification_number_' + id) || '';
 };
