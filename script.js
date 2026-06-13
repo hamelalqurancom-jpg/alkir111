@@ -924,7 +924,7 @@ window.renderPage = (page, contextId = null) => {
                     <i class="fas fa-file-pdf"></i> تصدير التقرير كـ PDF
                 </button>
 
-                <div class="stats-grid">
+                <div id="dash-sec-stats" class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon icon-emerald"><i class="fas fa-hand-holding-usd"></i></div>
                         <div class="stat-info">
@@ -956,8 +956,41 @@ window.renderPage = (page, contextId = null) => {
                     </div>
                 </div>
 
+                <!-- ===== DASHBOARD SECTION TOGGLES ===== -->
+                <div id="dash-toggle-bar" style="display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 0 0; padding:14px 18px; background:linear-gradient(135deg,#f8fafc,#eef2ff); border-radius:14px; border:1.5px solid #e0e7ff; align-items:center;">
+                    <span style="font-weight:800; color:#4338ca; font-size:0.9rem; margin-left:8px;"><i class="fas fa-sliders-h"></i> تخصيص العرض:</span>
+
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('dash-sec-charts', this)">
+                        <div class="dash-toggle-switch active" id="sw-dash-sec-charts">
+                            <div class="dash-toggle-knob"></div>
+                        </div>
+                        <span><i class="fas fa-chart-line"></i> الرسوم البيانية</span>
+                    </label>
+
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('dash-sec-inventory', this)">
+                        <div class="dash-toggle-switch active" id="sw-dash-sec-inventory">
+                            <div class="dash-toggle-knob"></div>
+                        </div>
+                        <span><i class="fas fa-boxes"></i> المخزن</span>
+                    </label>
+
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('dash-sec-catanalysis', this)">
+                        <div class="dash-toggle-switch active" id="sw-dash-sec-catanalysis">
+                            <div class="dash-toggle-knob"></div>
+                        </div>
+                        <span><i class="fas fa-chart-bar"></i> تحليل التبرعات</span>
+                    </label>
+
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('dash-sec-stats', this)">
+                        <div class="dash-toggle-switch active" id="sw-dash-sec-stats">
+                            <div class="dash-toggle-knob"></div>
+                        </div>
+                        <span><i class="fas fa-tachometer-alt"></i> الأرقام السريعة</span>
+                    </label>
+                </div>
+
                 <!-- Interactive Charts Section -->
-                <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-top: 25px;">
+                <div id="dash-sec-charts" style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-top: 25px;">
                     <div class="card" style="padding: 20px;">
                         <h3 style="margin-bottom: 20px; color: var(--primary-color);"><i class="fas fa-chart-line"></i> منحنى المساعدات مقابل التبرعات (آخر 6 أشهر)</h3>
                         <canvas id="aidTrendChart" style="max-height: 300px; width: 100%;"></canvas>
@@ -970,7 +1003,7 @@ window.renderPage = (page, contextId = null) => {
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 25px;">
                     <!-- Inventory Overview -->
-                    <div class="card">
+                    <div id="dash-sec-inventory" class="card">
                         <div class="card-header" style="background: #fdf2f8; border-bottom: 2px solid #fbcfe8;">
                             <h2 style="color: #be185d;"><i class="fas fa-boxes"></i> حالة المخزن (التبرعات العينية)</h2>
                         </div>
@@ -999,7 +1032,7 @@ window.renderPage = (page, contextId = null) => {
                     </div>
 
                     <!-- Category Breakdown -->
-                    <div class="card">
+                    <div id="dash-sec-catanalysis" class="card">
                         <div class="card-header">
                             <h2>تحليل التبرعات حسب الجهة</h2>
                         </div>
@@ -1037,6 +1070,23 @@ window.renderPage = (page, contextId = null) => {
             const totalDonationsStats = appData.donations.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
             const totalAidStats = (appData.expenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
             const netBalance = totalDonationsStats - totalAidStats;
+            const statsToggleBar = `
+                <div id="stats-toggle-bar" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; padding:14px 18px; background:linear-gradient(135deg,#f8fafc,#eef2ff); border-radius:14px; border:1.5px solid #e0e7ff; align-items:center;">
+                    <span style="font-weight:800; color:#4338ca; font-size:0.9rem; margin-left:8px;"><i class="fas fa-sliders-h"></i> تخصيص العرض:</span>
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('stats-sec-budget', this)">
+                        <div class="dash-toggle-switch active" id="sw-stats-sec-budget"><div class="dash-toggle-knob"></div></div>
+                        <span><i class="fas fa-balance-scale"></i> الميزانية</span>
+                    </label>
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('stats-sec-cases', this)">
+                        <div class="dash-toggle-switch active" id="sw-stats-sec-cases"><div class="dash-toggle-knob"></div></div>
+                        <span><i class="fas fa-users"></i> توزيع الحالات</span>
+                    </label>
+                    <label class="dash-toggle-item" onclick="window.toggleDashSection('stats-sec-reports', this)">
+                        <div class="dash-toggle-switch active" id="sw-stats-sec-reports"><div class="dash-toggle-knob"></div></div>
+                        <span><i class="fas fa-file-alt"></i> التقارير السريعة</span>
+                    </label>
+                </div>
+            `;
 
             // Group by Classification
             const typeCounts = {};
@@ -1047,8 +1097,8 @@ window.renderPage = (page, contextId = null) => {
                 });
             });
 
-            html = `
-                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+            html = statsToggleBar + `
+                    <div id="stats-sec-budget" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
                         <div class="card">
                             <div class="card-header"><h2>نظرة فاحصة على الميزانية</h2></div>
                             <div style="padding: 20px;">
@@ -1078,7 +1128,7 @@ window.renderPage = (page, contextId = null) => {
                             </div>
                         </div>
                         
-                        <div class="card">
+                        <div id="stats-sec-cases" class="card">
                             <div class="card-header"><h2>توزيع الحالات</h2></div>
                             <div style="padding: 10px;">
                                 ${Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => `
@@ -1098,7 +1148,8 @@ window.renderPage = (page, contextId = null) => {
                         </div>
                     </div>
 
-                    <div class="card" style="margin-top: 20px;">
+                    </div>
+                    <div id="stats-sec-reports" class="card" style="margin-top: 20px;">
                         <div class="card-header"><h2>تقارير سريعة</h2></div>
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px;">
                             <button class="btn-primary" style="background: #3b82f6; height: 120px; flex-direction: column; gap: 10px;" onclick="renderPage('reports')">
@@ -7291,4 +7342,27 @@ window.exportToPDF = (elementId, filename = 'report.pdf') => {
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(filename);
     });
+};
+
+// =============================================
+// ---   DASHBOARD SECTION TOGGLE SYSTEM    ---
+// =============================================
+window.dashSectionStates = window.dashSectionStates || {};
+
+window.toggleDashSection = function(sectionId, labelEl) {
+    const section = document.getElementById(sectionId);
+    const switchEl = document.getElementById('sw-' + sectionId);
+    if (!section) return;
+
+    const isActive = switchEl && switchEl.classList.contains('active');
+    if (isActive) {
+        section.style.display = 'none';
+        if (switchEl) switchEl.classList.remove('active');
+        if (labelEl) labelEl.style.opacity = '0.55';
+    } else {
+        section.style.display = '';
+        if (switchEl) switchEl.classList.add('active');
+        if (labelEl) labelEl.style.opacity = '1';
+    }
+    window.dashSectionStates[sectionId] = !isActive;
 };

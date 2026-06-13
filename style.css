@@ -1255,6 +1255,18 @@ body {
     color: #a19f9d;
 }
 
+/* Compact inputs - smaller padding and font for secondary fields */
+.compact-input {
+    padding: 9px 12px !important;
+    font-size: 0.88rem !important;
+    border-radius: 8px !important;
+    background: #fafbff !important;
+}
+
+.input-group-office label {
+    font-size: 0.88rem;
+}
+
 /* ============================================================
    MOBILE WALLET STYLE (Responsive Design)
 ============================================================ */
@@ -1724,4 +1736,54 @@ body {
     .case-info-public .info-item {
         padding: 12px;
     }
+}
+/* ============================================================
+   DASHBOARD SECTION TOGGLE SWITCHES
+============================================================ */
+.dash-toggle-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 7px 14px;
+    border-radius: 30px;
+    background: white;
+    border: 1.5px solid #e2e8f0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #374151;
+    user-select: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.dash-toggle-item:hover {
+    border-color: #6366f1;
+    background: #f5f3ff;
+}
+
+.dash-toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: #cbd5e1;
+    transition: background 0.25s ease;
+    flex-shrink: 0;
+}
+.dash-toggle-switch.active {
+    background: #6366f1;
+}
+.dash-toggle-knob {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform 0.25s ease;
+}
+.dash-toggle-switch.active .dash-toggle-knob {
+    transform: translateX(-16px);
 }
