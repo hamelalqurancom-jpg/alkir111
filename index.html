@@ -112,6 +112,21 @@
                     <i class="fas fa-lock"></i>
                     <input type="password" id="reg-password" placeholder="كلمة المرور (6 أرقام على الأقل)...">
                 </div>
+                <div class="input-group">
+                    <i class="fas fa-bell"></i>
+                    <input type="text" id="reg-notification-number" placeholder="رقم الإشعار (اختياري)...">
+                </div>
+                <!-- Logo Upload -->
+                <div id="reg-logo-upload-area" onclick="document.getElementById('reg-logo-input').click()"
+                    style="border: 2px dashed #6366f1; border-radius: 12px; padding: 18px 10px; text-align: center; cursor: pointer; margin-bottom: 14px; transition: background 0.2s; background: #f5f3ff;">
+                    <div id="reg-logo-preview-wrap" style="display:none; margin-bottom:8px;">
+                        <img id="reg-logo-preview" src="" style="height:60px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+                    </div>
+                    <i class="fas fa-image" style="font-size:1.6rem; color:#6366f1; margin-bottom:6px;"></i>
+                    <p id="reg-logo-label" style="margin:4px 0 0; font-size:0.85rem; color:#6366f1; font-weight:700;">انقر لرفع شعار (لوجو) الجمعية</p>
+                    <p style="margin:2px 0 0; font-size:0.75rem; color:#999;">PNG أو JPG - سيظهر في جميع مستندات الطباعة</p>
+                    <input type="file" id="reg-logo-input" accept="image/*" style="display:none" onchange="window.previewRegLogo(this)">
+                </div>
                 <div id="register-error"
                     style="color: #e11d48; font-size: 0.85rem; text-align: center; margin-bottom: 15px; display: none; font-weight: 700;">
                 </div>
@@ -361,6 +376,7 @@
             </div>
             <div class="modal-body">
                 <div class="form-grid">
+                    <!-- Row 1: رقم البحث + استثنائية -->
                     <div class="input-group-office">
                         <label>رقم البحث (كود الحالة)</label>
                         <input type="text" id="modal-case-search-number" class="office-input" placeholder="مثلاً: 101">
@@ -370,74 +386,87 @@
                         <input type="checkbox" id="modal-case-exceptional"
                             style="width: 20px; height: 20px; cursor: pointer;">
                         <label for="modal-case-exceptional"
-                            style="margin-bottom: 0; cursor: pointer; color: #d13438; font-weight: 700;">حالة استثنائية
-                            (خارج السجل)</label>
+                            style="margin-bottom: 0; cursor: pointer; color: #d13438; font-weight: 700;">حالة استثنائية (خارج السجل)</label>
                     </div>
+
+                    <!-- Row 2: المركز -->
                     <div class="input-group-office">
                         <label>المركز</label>
                         <input type="text" id="modal-case-center" class="office-input" placeholder="مثلاً: كفر الشيخ">
                     </div>
-                    <div class="input-group-office">
-                        <label>اسم الحالة</label>
+                    <div></div>
+
+                    <!-- Row 3: اسم الحالة (كامل العرض) -->
+                    <div class="input-group-office" style="grid-column: span 2;">
+                        <label><i class="fas fa-user" style="color:#d13438; margin-left:5px;"></i> اسم الحالة</label>
                         <div class="dropdown-container">
                             <input type="text" id="modal-case-name" class="office-input"
+                                style="font-size:1.05rem; font-weight:700;"
                                 oninput="searchExistingCases('name', this.value)" autocomplete="off">
                             <div id="case-name-results" class="dropdown-results"></div>
                         </div>
                     </div>
+
+                    <!-- Row 4: الرقم القومي + السن (نص صغير جنب بعض) -->
                     <div class="input-group-office">
-                        <label>الرقم القومي</label>
+                        <label><i class="fas fa-id-card" style="color:#2563eb; margin-left:5px;"></i> الرقم القومي</label>
                         <div class="dropdown-container">
-                            <input type="text" id="modal-case-national-id" class="office-input"
+                            <input type="text" id="modal-case-national-id" class="office-input compact-input"
                                 oninput="searchExistingCases('nationalId', this.value); if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'modal-case-age-display')"
                                 autocomplete="off">
                             <div id="case-id-results" class="dropdown-results"></div>
                         </div>
                     </div>
                     <div class="input-group-office">
-                        <label>السن (محسوب من الرقم القومي)</label>
-                        <input type="text" id="modal-case-age-display" class="office-input" readonly
-                            style="background: #f8fafc; font-weight: 700; color: #1d4ed8;"
-                            placeholder="سيظهر السن هنا تلقائياً...">
+                        <label><i class="fas fa-birthday-cake" style="color:#7c3aed; margin-left:5px;"></i> السن المحسوب</label>
+                        <input type="text" id="modal-case-age-display" class="office-input compact-input" readonly
+                            style="background: #f0f4ff; font-weight: 700; color: #1d4ed8; text-align:center;"
+                            placeholder="تلقائي...">
                     </div>
+
+                    <!-- Row 5: رقم الهاتف + المهنة (نص صغير) -->
                     <div class="input-group-office">
-                        <label>المهنة</label>
-                        <input type="text" id="modal-case-job" class="office-input">
-                    </div>
-                    <div class="input-group-office">
-                        <label>رقم الهاتف</label>
+                        <label><i class="fas fa-phone" style="color:#059669; margin-left:5px;"></i> رقم الهاتف</label>
                         <div class="dropdown-container">
-                            <input type="text" id="modal-case-phone" class="office-input"
+                            <input type="text" id="modal-case-phone" class="office-input compact-input"
                                 oninput="searchExistingCases('phone', this.value)" autocomplete="off">
                             <div id="case-phone-results" class="dropdown-results"></div>
                         </div>
                     </div>
                     <div class="input-group-office">
-                        <label>اسم الزوج/ة</label>
+                        <label><i class="fas fa-briefcase" style="color:#ea580c; margin-left:5px;"></i> المهنة</label>
+                        <input type="text" id="modal-case-job" class="office-input compact-input">
+                    </div>
+
+                    <!-- Row 6: اسم الزوج/ة + الرقم القومي للزوج/ة (نص صغير) -->
+                    <div class="input-group-office">
+                        <label><i class="fas fa-user-friends" style="color:#db2777; margin-left:5px;"></i> اسم الزوج/ة</label>
                         <div class="dropdown-container">
-                            <input type="text" id="modal-case-spouse-name" class="office-input"
+                            <input type="text" id="modal-case-spouse-name" class="office-input compact-input"
                                 oninput="searchExistingCases('spouseName', this.value)" autocomplete="off">
                             <div id="case-spouse-name-results" class="dropdown-results"></div>
                         </div>
                     </div>
                     <div class="input-group-office">
-                        <label>الرقم القومي للزوج/ة</label>
+                        <label><i class="fas fa-id-badge" style="color:#0891b2; margin-left:5px;"></i> الرقم القومي للزوج/ة</label>
                         <div class="dropdown-container">
-                            <input type="text" id="modal-case-spouse-id" class="office-input"
+                            <input type="text" id="modal-case-spouse-id" class="office-input compact-input"
                                 oninput="searchExistingCases('spouseId', this.value); if(window.calculateAgeFromID) window.calculateAgeFromID(this.value, 'modal-case-spouse-age-display')"
                                 autocomplete="off">
                             <div id="case-spouse-id-results" class="dropdown-results"></div>
                         </div>
                     </div>
+
+                    <!-- Row 7: سن الزوج/ة + هاتف الزوج/ة (نص صغير) -->
                     <div class="input-group-office">
-                        <label>سن الزوج/ة (تلقائي)</label>
-                        <input type="text" id="modal-case-spouse-age-display" class="office-input" readonly
-                            style="background: #f8fafc; font-weight: 700; color: #1d4ed8;" placeholder="السن...">
+                        <label><i class="fas fa-birthday-cake" style="color:#7c3aed; margin-left:5px;"></i> سن الزوج/ة (تلقائي)</label>
+                        <input type="text" id="modal-case-spouse-age-display" class="office-input compact-input" readonly
+                            style="background: #f0f4ff; font-weight: 700; color: #1d4ed8; text-align:center;" placeholder="تلقائي...">
                     </div>
                     <div class="input-group-office">
-                        <label>هاتف الزوج/ة</label>
+                        <label><i class="fas fa-phone-alt" style="color:#059669; margin-left:5px;"></i> هاتف الزوج/ة</label>
                         <div class="dropdown-container">
-                            <input type="text" id="modal-case-spouse-phone" class="office-input"
+                            <input type="text" id="modal-case-spouse-phone" class="office-input compact-input"
                                 oninput="searchExistingCases('spousePhone', this.value)" autocomplete="off">
                             <div id="case-spouse-phone-results" class="dropdown-results"></div>
                         </div>
