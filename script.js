@@ -741,18 +741,21 @@ window.applyZoom = () => {
     const contentArea = document.getElementById('content-area');
 
     if (isMobile && contentArea) {
-        // على الموبايل: نستخدم transform:scale على منطقة المحتوى فقط
+        // على الموبايل: نستخدم transform:scale على منطقة المحتوى
+        // ونلغي zoom من الـ body عشان متفضلش فراغات
+        document.body.style.zoom = '';
         contentArea.style.transformOrigin = 'top right';
         contentArea.style.transform = `scale(${currentZoom})`;
-        contentArea.style.width = `${100 / currentZoom}%`;
-        // نلغي الزووم من الـ body على الموبايل
-        document.body.style.zoom = '';
+        // نعوض الحجم عشان الكرت يفضل مالي العرض بعد الـ scale
+        contentArea.style.width = `${(1 / currentZoom) * 100}%`;
+        contentArea.style.marginBottom = `${(currentZoom - 1) * 100}px`;
     } else {
         // على الكمبيوتر: نستخدم body zoom زي الأصل
         document.body.style.zoom = currentZoom;
         if (contentArea) {
             contentArea.style.transform = '';
             contentArea.style.width = '';
+            contentArea.style.marginBottom = '';
         }
     }
 
