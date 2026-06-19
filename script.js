@@ -998,6 +998,13 @@ window.renderPage = (page, contextId = null) => {
             const currentCashBalance = cashDonations - (appData.expenses || []).filter(e => !e.inkind).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
             const totalAssetsValue = currentCashBalance + inKindValue;
 
+            // Total in-kind value ever received (not just what remains in stock) - so that
+            // cashDonations + totalInKindReceived === totalDonations exactly, matching the
+            // "إجمالي الوارد" box above.
+            const totalInKindReceived = inventory.reduce((sum, item) => sum + ((parseFloat(item.totalQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0);
+            const cashFromSubtraction = totalDonations - totalInKindReceived;   // = cashDonations
+            const inKindFromSubtraction = totalDonations - cashDonations;      // = totalInKindReceived
+
             html = `
                 <!-- PDF Export Button -->
                 <button class="btn-primary" style="position:fixed; bottom:20px; left:20px; z-index:1000; border-radius:50px; padding:15px 25px; box-shadow:0 10px 20px rgba(0,0,0,0.2); background: linear-gradient(135deg, #e11d48 0%, #be185d 100%); border:none; color:white; font-weight:bold;" onclick="window.exportToPDF('main-content', 'charity_dashboard_report.pdf')">
@@ -1032,6 +1039,20 @@ window.renderPage = (page, contextId = null) => {
                             <h3 style="color: #1d4ed8;">الرصيد النقدي المتاح</h3>
                             <p style="font-size: 1.5rem; font-weight: 800; color: #1d4ed8;">${currentCashBalance.toLocaleString()} ج.م</p>
                             <small>إجمالي الأصول (مع المخزن): ${totalAssetsValue.toLocaleString()} ج.م</small>
+                        </div>
+                    </div>
+                    <div class="stat-card" title="الإجمالي - التبرع العيني">
+                        <div class="stat-icon icon-blue"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="stat-info">
+                            <h3>التبرع النقدي (الإجمالي - العيني)</h3>
+                            <p>${cashFromSubtraction.toLocaleString()} ج.م</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" title="الإجمالي - التبرع النقدي">
+                        <div class="stat-icon" style="background:#8b5cf6; color:white;"><i class="fas fa-box-open"></i></div>
+                        <div class="stat-info">
+                            <h3>التبرع العيني (الإجمالي - النقدي)</h3>
+                            <p>${inKindFromSubtraction.toLocaleString()} ج.م</p>
                         </div>
                     </div>
                 </div>
@@ -1092,19 +1113,56 @@ window.renderPage = (page, contextId = null) => {
                                 <table class="data-table">
                                     <thead>
                                         <tr>
+                                            <th style="width:30px;"></th>
                                             <th>الصنف</th>
                                             <th>المتاح</th>
                                             <th>إجمالي القيمة</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${appData.inventory.map(item => `
+                                        ${appData.inventory.map(item => {
+                                            const contributions = item.contributions || [];
+                                            return `
                                             <tr>
+                                                <td style="cursor:pointer; color:#be185d; text-align:center;" onclick="window.toggleInventoryDetails('${item.id}')" title="عرض تفاصيل التبرعات">
+                                                    <i class="fas fa-chevron-down" id="inv-arrow-${item.id}" style="transition: transform 0.2s;"></i>
+                                                </td>
                                                 <td style="font-weight: bold;">${item.name}</td>
                                                 <td style="color: #3730a3; font-weight: 800;">${item.remainingQuantity}</td>
                                                 <td style="color: #1d4ed8;">${(item.remainingQuantity * item.unitPrice).toLocaleString()} ج.م</td>
                                             </tr>
-                                        `).join('')}
+                                            <tr id="inv-details-${item.id}" style="display:none; background:#fdf2f8;">
+                                                <td colspan="4" style="padding:0;">
+                                                    ${contributions.length > 0 ? `
+                                                        <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                                                            <thead>
+                                                                <tr style="background:#fbcfe8;">
+                                                                    <th style="padding:6px;">التاريخ</th>
+                                                                    <th style="padding:6px;">المتبرع</th>
+                                                                    <th style="padding:6px;">الهاتف</th>
+                                                                    <th style="padding:6px;">العدد</th>
+                                                                    <th style="padding:6px;">سعر القطعة</th>
+                                                                    <th style="padding:6px;">القيمة</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                ${[...contributions].reverse().map(c => `
+                                                                    <tr>
+                                                                        <td style="padding:6px; text-align:center;">${c.date}</td>
+                                                                        <td style="padding:6px; text-align:center; font-weight:700;">${c.donor}</td>
+                                                                        <td style="padding:6px; text-align:center;">${c.phone || '-'}</td>
+                                                                        <td style="padding:6px; text-align:center;">${c.qty}</td>
+                                                                        <td style="padding:6px; text-align:center;">${(parseFloat(c.unitPrice) || 0).toLocaleString()} ج.م</td>
+                                                                        <td style="padding:6px; text-align:center; font-weight:700;">${(parseFloat(c.totalValue) || 0).toLocaleString()} ج.م</td>
+                                                                    </tr>
+                                                                `).join('')}
+                                                            </tbody>
+                                                        </table>
+                                                    ` : '<p style="text-align:center; color:#999; padding:8px; font-size:0.8rem;">لا توجد تفاصيل تبرعات مسجلة لهذا الصنف (تمت إضافته قبل تفعيل هذه الميزة)</p>'}
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
                                     </tbody>
                                 </table>
                             ` : '<p style="text-align: center; color: #999; padding: 20px;">المخزن فارغ حالياً</p>'}
@@ -1611,7 +1669,13 @@ window.renderPage = (page, contextId = null) => {
                                 <div class="form-grid" style="grid-template-columns: repeat(3, 1fr); width: 100%;">
                                     <div class="input-group-office">
                                         <label>الصنف العيني (مثلاً: بطانية)</label>
-                                        <input type="text" id="donation-item-name" class="office-input" placeholder="اسم الصنف">
+                                        <div class="dropdown-container">
+                                            <input type="text" id="donation-item-name" class="office-input" placeholder="اسم الصنف"
+                                                oninput="filterInKindItemNames(this.value)"
+                                                onfocus="filterInKindItemNames(this.value)"
+                                                autocomplete="off">
+                                            <div id="item-name-dropdown-results" class="dropdown-results"></div>
+                                        </div>
                                     </div>
                                     <div class="input-group-office">
                                         <label>سعر القطعة الواحدة</label>
@@ -3180,10 +3244,14 @@ window.addNewDonation = () => {
                     beneficiary: caseRecord.name,
                     nationalId: caseRecord.nationalId || '',
                     amount: splitAmount.toString(),
-                    category: `كفالة من الكفيل: ${donor}`,
+                    category: 'كفالة شهرية',
                     month: new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' }).format(new Date(date)),
                     responsible: 'نظام الكفالة',
-                    signature: `كفالة من الكفيل: ${donor} للمكفول: ${caseRecord.name}`
+                    signature: 'مساعدة نقدية (كفالة)'
+                    // Note: intentionally not naming the sponsor here - the donation itself
+                    // (with the donor's name) is recorded in appData.donations above; once it
+                    // reaches a case it is paid out of the general cash pool like any other
+                    // cash expense, not attributed back to a specific donor.
                 };
 
                 if (!appData.expenses) appData.expenses = [];
@@ -3194,7 +3262,7 @@ window.addNewDonation = () => {
 
                 // Update main case fields to reflect newest sponsorship
                 caseRecord.amount = splitAmount.toString();
-                caseRecord.source = `كفالة: ${donor} (كفيل)`;
+                caseRecord.source = 'كفالة شهرية';
                 caseRecord.date = date; // Update date to show last activity
             }
         });
@@ -3224,12 +3292,23 @@ window.addNewDonation = () => {
         // 2. Update Inventory
         if (!appData.inventory) appData.inventory = [];
         const invIndex = appData.inventory.findIndex(i => window.normalizeArabic(i.name) === window.normalizeArabic(itemName));
+        const contributionEntry = {
+            id: Date.now() + Math.random(),
+            date,
+            donor,
+            phone,
+            qty: itemQty,
+            unitPrice: totalValue / itemQty,
+            totalValue
+        };
 
         if (invIndex !== -1) {
             appData.inventory[invIndex].totalQuantity += itemQty;
             appData.inventory[invIndex].remainingQuantity += itemQty;
             appData.inventory[invIndex].totalValue += totalValue;
             appData.inventory[invIndex].unitPrice = appData.inventory[invIndex].totalValue / appData.inventory[invIndex].totalQuantity;
+            if (!appData.inventory[invIndex].contributions) appData.inventory[invIndex].contributions = [];
+            appData.inventory[invIndex].contributions.push(contributionEntry);
         } else {
             appData.inventory.push({
                 id: Date.now(),
@@ -3237,7 +3316,8 @@ window.addNewDonation = () => {
                 totalQuantity: itemQty,
                 remainingQuantity: itemQty,
                 totalValue: totalValue,
-                unitPrice: totalValue / itemQty
+                unitPrice: totalValue / itemQty,
+                contributions: [contributionEntry]
             });
         }
     }
@@ -4301,6 +4381,8 @@ document.addEventListener('click', (e) => {
     if (idDrop && !idDrop.contains(e.target) && e.target.id !== 'modal-case-national-id') idDrop.style.display = 'none';
     const bulkDrop = document.getElementById('bulk-manual-results');
     if (bulkDrop && !bulkDrop.contains(e.target) && e.target.id !== 'bulk-manual-search') bulkDrop.style.display = 'none';
+    const itemNameDrop = document.getElementById('item-name-dropdown-results');
+    if (itemNameDrop && !itemNameDrop.contains(e.target) && e.target.id !== 'donation-item-name') itemNameDrop.style.display = 'none';
 });
 
 window.addNewExpense = () => { // Keep for backward compatibility if needed, but the UI calls addNewAidRecord
@@ -6962,6 +7044,54 @@ window.printDonorHistory = () => {
     localStorage.setItem('printPayload', content);
     localStorage.setItem('printType', 'portrait');
     window.open('print.html', '_blank');
+};
+
+window.toggleInventoryDetails = (itemId) => {
+    const row = document.getElementById('inv-details-' + itemId);
+    const arrow = document.getElementById('inv-arrow-' + itemId);
+    if (!row) return;
+    const isHidden = row.style.display === 'none';
+    row.style.display = isHidden ? 'table-row' : 'none';
+    if (arrow) arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+};
+
+window.filterInKindItemNames = (val) => {
+    const resultsDiv = document.getElementById('item-name-dropdown-results');
+    if (!resultsDiv) return;
+
+    if (!val || val.length < 1) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+
+    const query = window.normalizeArabic(val);
+    const inventory = appData.inventory || [];
+    const results = inventory.filter(i => window.normalizeArabic(i.name).includes(query));
+
+    if (results.length > 0) {
+        resultsDiv.innerHTML = results.slice(0, 10).map(i => `
+            <div class="dropdown-item" 
+                 onclick="selectInKindItemName(this.getAttribute('data-name'))" 
+                 data-name="${i.name.replace(/"/g, '&quot;')}">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>${i.name}</strong>
+                    <span style="font-size: 0.75rem; color: #666;">المتاح: ${i.remainingQuantity}</span>
+                </div>
+            </div>
+        `).join('');
+        resultsDiv.style.display = 'block';
+    } else {
+        resultsDiv.style.display = 'none';
+    }
+};
+
+window.selectInKindItemName = (name) => {
+    // Only fills in the item name so it matches the existing inventory entry exactly.
+    // Unit price and quantity are left as-is for the user to enter fresh for this donation;
+    // they don't have to match the previous entry's price/quantity, just the item name.
+    const nameInput = document.getElementById('donation-item-name');
+    if (nameInput) nameInput.value = name;
+    document.getElementById('item-name-dropdown-results').style.display = 'none';
 };
 
 window.filterDonors = (val) => {
