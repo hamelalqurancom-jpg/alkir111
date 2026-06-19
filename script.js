@@ -737,7 +737,25 @@ window.sendWhatsAppMessage = (phone, message) => {
 };
 
 window.applyZoom = () => {
-    document.body.style.zoom = currentZoom;
+    const isMobile = window.innerWidth <= 1024;
+    const contentArea = document.getElementById('content-area');
+
+    if (isMobile && contentArea) {
+        // على الموبايل: نستخدم transform:scale على منطقة المحتوى فقط
+        contentArea.style.transformOrigin = 'top right';
+        contentArea.style.transform = `scale(${currentZoom})`;
+        contentArea.style.width = `${100 / currentZoom}%`;
+        // نلغي الزووم من الـ body على الموبايل
+        document.body.style.zoom = '';
+    } else {
+        // على الكمبيوتر: نستخدم body zoom زي الأصل
+        document.body.style.zoom = currentZoom;
+        if (contentArea) {
+            contentArea.style.transform = '';
+            contentArea.style.width = '';
+        }
+    }
+
     const zoomLevelText = document.getElementById('zoom-level');
     if (zoomLevelText) zoomLevelText.innerText = Math.round(currentZoom * 100) + '%';
     localStorage.setItem('appZoom', currentZoom);

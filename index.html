@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جمعية الخير لتنمية المجتمع بمسير | لوحة التحكم</title>
+    <title>برنامج إدارة الجمعيات الخيرية | لوحة التحكم</title>
     <meta name="description"
         content="نظام إدارة جمعية الخير لتنمية المجتمع بمسير - إدارة المتبرعين والحالات والمساعدات">
     <!-- Fonts -->
@@ -20,7 +20,7 @@
     <!-- jsPDF & html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=2.4">
+    <link rel="stylesheet" href="style.css?v=2.7">
 
     <!-- PWA Settings -->
     <link rel="manifest" href="manifest.json">
@@ -51,18 +51,32 @@
     <!-- Splash Screen -->
     <div id="splash-screen" class="splash-overlay">
         <div class="splash-content">
+
+            <!-- الأيقونة المتحركة -->
             <div class="splash-logo">
-                <i class="fas fa-hand-holding-heart fa-4x" style="color: #6366f1;"></i>
+                <div class="splash-icon-ring">
+                    <i class="fas fa-hand-holding-heart"></i>
+                </div>
             </div>
-            <h1 style="font-size: 2rem; margin-bottom: 15px; font-weight: 800;">نظام إدارة الجمعيات الخيرية</h1>
-            <p
-                style="font-size: 1.2rem; color: #94a3b8; margin-bottom: 35px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                تم التصميم والتطوير بواسطة جمعية الخير لتنمية المجتمع بمسير</p>
+
+            <!-- العناوين -->
+            <div class="splash-title-main">الجمعيات الخيرية</div>
+            <div class="splash-title-program">برنامج إدارة</div>
+            <div class="splash-title-sub">الجمعيات الخيرية</div>
+            <div class="splash-divider"></div>
+            <div class="splash-tagline">نظام متكامل لإدارة الحالات والتبرعات والمتطوعين</div>
+
+            <!-- بار التحميل -->
             <div class="splash-loader"></div>
+            <p id="splash-status-text">جاري تهيئة النظام...</p>
+
+            <!-- زرار البدء -->
             <div class="splash-actions" style="margin-top: 30px; display: none;">
-                <button id="start-trial-btn" class="btn-primary" style="padding: 15px 40px; font-size: 1.2rem;">بدء
-                    الاستخدام الآن <i class="fas fa-arrow-left"></i></button>
+                <button id="start-trial-btn" class="btn-primary">
+                    بدء الاستخدام الآن &nbsp;<i class="fas fa-arrow-left"></i>
+                </button>
             </div>
+
         </div>
     </div>
 
