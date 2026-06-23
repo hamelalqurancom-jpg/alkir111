@@ -7645,3 +7645,113 @@ window.getNotifNumber = function() {
     const id = localStorage.getItem('logged_charity_id') || '';
     return localStorage.getItem('charity_notification_number_' + id) || '';
 };
+
+// =============================================
+// ---   MOBILE HEADER QUICK-ACTION MENUS    ---
+//  (Menu / Print / Export buttons shown only
+//   on mobile, replacing the bottom nav bar)
+// =============================================
+
+// Full list of navigable pages, mirroring the sidebar exactly.
+// Each entry: { page, icon, label } — 'master' and 'logout' are handled specially below.
+window.MOBILE_NAV_PAGES = [
+    { page: 'dashboard', icon: 'fa-chart-line', label: 'الرئيسية' },
+    { page: 'statistics', icon: 'fa-chart-pie', label: 'إحصائيات وتقارير' },
+    { page: 'cases', icon: 'fa-users', label: 'إدارة الحالات' },
+    { page: 'exceptional', icon: 'fa-user-tag', label: 'حالات استثنائية' },
+    { page: 'donations', icon: 'fa-donate', label: 'التبرعات' },
+    { page: 'hidden', icon: 'fa-eye-slash', label: 'الحالات المخفية' },
+    { page: 'expenses', icon: 'fa-file-invoice-dollar', label: 'المصروفات' },
+    { page: 'volunteers', icon: 'fa-user-friends', label: 'المتطوعين' },
+    { page: 'reports', icon: 'fa-print', label: 'التقارير' },
+    { page: 'affidavit', icon: 'fa-file-invoice', label: 'نظام الإفادة' },
+    { page: 'settings', icon: 'fa-cog', label: 'الإعدادات' },
+];
+
+window.closeMobileMenus = function () {
+    const pageMenu = document.getElementById('mobile-page-menu');
+    const printMenu = document.getElementById('mobile-print-menu');
+    const overlay = document.getElementById('mobile-dropdown-overlay');
+    if (pageMenu) pageMenu.classList.remove('open');
+    if (printMenu) printMenu.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
+};
+
+window.buildMobilePageMenu = function () {
+    const list = document.getElementById('mobile-page-menu-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    window.MOBILE_NAV_PAGES.forEach(item => {
+        // In staff mode, only show pages staff are allowed to access
+        if (window.staffMode && window.STAFF_ALLOWED_PAGES && !window.STAFF_ALLOWED_PAGES.includes(item.page)) {
+            return;
+        }
+        const li = document.createElement('li');
+        li.innerHTML = `<i class="fas ${item.icon}"></i> ${item.label}`;
+        li.onclick = function () {
+            window.closeMobileMenus();
+            // Each item opens ONLY that page on its own — nothing else attached
+            if (typeof window.renderPage === 'function') {
+                window.renderPage(item.page);
+            }
+        };
+        list.appendChild(li);
+    });
+
+    // Master (admin) — password protected, same as desktop sidebar
+    if (!window.staffMode) {
+        const masterLi = document.createElement('li');
+        masterLi.innerHTML = '<i class="fas fa-crown" style="color:#ef4444;"></i> <span style="color:#ef4444; font-weight:800;">الماستر (الإدارة)</span>';
+        masterLi.onclick = function () {
+            window.closeMobileMenus();
+            const pass = prompt('أدخل كلمة مرور الإدارة (الماستر):');
+            if (pass !== '1111') {
+                alert('كلمة المرور غير صحيحة!');
+                return;
+            }
+            if (typeof window.renderPage === 'function') {
+                window.renderPage('master');
+            }
+        };
+        list.appendChild(masterLi);
+    }
+
+    // Logout
+    const logoutLi = document.createElement('li');
+    logoutLi.className = 'danger';
+    logoutLi.innerHTML = '<i class="fas fa-sign-out-alt"></i> تسجيل الخروج';
+    logoutLi.onclick = function () {
+        window.closeMobileMenus();
+        if (typeof window.logoutApp === 'function') window.logoutApp();
+    };
+    list.appendChild(logoutLi);
+};
+
+window.toggleMobilePageMenu = function () {
+    const pageMenu = document.getElementById('mobile-page-menu');
+    const printMenu = document.getElementById('mobile-print-menu');
+    const overlay = document.getElementById('mobile-dropdown-overlay');
+    if (!pageMenu) return;
+
+    const isOpen = pageMenu.classList.contains('open');
+    window.closeMobileMenus();
+    if (!isOpen) {
+        window.buildMobilePageMenu();
+        pageMenu.classList.add('open');
+        if (overlay) overlay.classList.add('open');
+    }
+};
+
+window.toggleMobilePrintMenu = function () {
+    const printMenu = document.getElementById('mobile-print-menu');
+    const overlay = document.getElementById('mobile-dropdown-overlay');
+    if (!printMenu) return;
+
+    const isOpen = printMenu.classList.contains('open');
+    window.closeMobileMenus();
+    if (!isOpen) {
+        printMenu.classList.add('open');
+        if (overlay) overlay.classList.add('open');
+    }
+};

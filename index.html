@@ -262,6 +262,44 @@
                         <i class="fas fa-download"></i> تثبيت التطبيق
                     </button>
 
+                    <!-- Mobile-Only Quick Action Buttons (Menu / Print / Export) -->
+                    <div class="mobile-header-actions">
+                        <button class="icon-btn mobile-action-btn" id="mobile-menu-btn" title="القائمة"
+                            onclick="window.toggleMobilePageMenu()">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <button class="icon-btn mobile-action-btn" id="mobile-print-btn" title="طباعة"
+                            onclick="window.toggleMobilePrintMenu()">
+                            <i class="fas fa-print"></i>
+                        </button>
+                        <button class="icon-btn mobile-action-btn" id="mobile-export-btn" title="تصدير إكسيل"
+                            onclick="window.exportToExcel()">
+                            <i class="fas fa-file-excel"></i>
+                        </button>
+
+                        <!-- Mobile Page Menu Dropdown -->
+                        <div id="mobile-page-menu" class="mobile-dropdown-menu">
+                            <div class="mobile-dropdown-title"><i class="fas fa-th-large"></i> اذهب إلى</div>
+                            <ul id="mobile-page-menu-list"></ul>
+                        </div>
+
+                        <!-- Mobile Print Menu Dropdown -->
+                        <div id="mobile-print-menu" class="mobile-dropdown-menu">
+                            <div class="mobile-dropdown-title"><i class="fas fa-print"></i> ماذا تريد أن تطبع؟</div>
+                            <ul>
+                                <li onclick="window.closeMobileMenus(); openDonationPrintModal();">
+                                    <i class="fas fa-receipt"></i> طباعة عادية
+                                </li>
+                                <li onclick="window.closeMobileMenus(); openClassificationPrintModal();">
+                                    <i class="fas fa-filter"></i> طباعة بالتصنيف
+                                </li>
+                                <li onclick="window.closeMobileMenus(); openCardsManagerModal();">
+                                    <i class="fas fa-id-card"></i> كروت المستفيدين
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
                     <div class="zoom-controls">
                         <button onclick="changeZoom(0.1)" class="zoom-btn" title="تكبير">
                             <i class="fas fa-search-plus"></i>
@@ -301,6 +339,9 @@
                     </div>
                 </div>
             </header>
+
+            <!-- Overlay to close mobile dropdown menus when tapping outside -->
+            <div class="mobile-dropdown-overlay" id="mobile-dropdown-overlay" onclick="window.closeMobileMenus()"></div>
 
             <!-- Ribbon Menu -->
             <div class="ribbon">
