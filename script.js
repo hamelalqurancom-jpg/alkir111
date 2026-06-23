@@ -2157,6 +2157,31 @@ window.renderPage = (page, contextId = null) => {
                 `;
             break;
 
+        case 'printcenter':
+            pageTitle.innerText = 'الطباعة';
+            html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h2><i class="fas fa-print"></i> مركز الطباعة</h2>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 15px; padding: 10px 0;">
+                            <button class="btn-primary" style="justify-content: flex-start; gap: 15px; padding: 18px 20px; font-size: 1.05rem; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);" onclick="openDonationPrintModal()">
+                                <i class="fas fa-print" style="font-size: 1.4rem;"></i>
+                                <span>طباعة عادية</span>
+                            </button>
+                            <button class="btn-primary" style="justify-content: flex-start; gap: 15px; padding: 18px 20px; font-size: 1.05rem; background: linear-gradient(135deg, #d946ef 0%, #a21caf 100%);" onclick="openClassificationPrintModal()">
+                                <i class="fas fa-filter" style="font-size: 1.4rem;"></i>
+                                <span>طباعة بالتصنيف</span>
+                            </button>
+                            <button class="btn-primary" style="justify-content: flex-start; gap: 15px; padding: 18px 20px; font-size: 1.05rem; background: linear-gradient(135deg, #334155 0%, #0f172a 100%);" onclick="openCardsManagerModal()">
+                                <i class="fas fa-id-card" style="font-size: 1.4rem;"></i>
+                                <span>كروت المستفيدين</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            break;
+
         case 'exceptional':
             pageTitle.innerText = 'الحالات الاستثنائية (خارج السجل الدائم)';
             const exFilter = window.currentSearchFilter || '';
@@ -2485,6 +2510,21 @@ window.renderPage = (page, contextId = null) => {
             const scanner = document.getElementById('aid-barcode-scan');
             if (scanner) scanner.focus();
         }, 100);
+    }
+    if (page === 'settings') {
+        const settingsLinkBtn = document.getElementById('link-folder-btn-settings');
+        if (settingsLinkBtn) {
+            settingsLinkBtn.addEventListener('click', async () => {
+                try {
+                    directoryHandle = await window.showDirectoryPicker();
+                    await window.loadDataFromFile();
+                    // Refresh the settings page so the button/status reflect the new connection
+                    window.renderPage('settings');
+                } catch (err) {
+                    console.error('Folder selection cancelled', err);
+                }
+            });
+        }
     }
 }
 
@@ -7647,13 +7687,14 @@ window.getNotifNumber = function() {
 };
 
 // =============================================
-// ---   MOBILE HEADER QUICK-ACTION MENUS    ---
-//  (Menu / Print / Export buttons shown only
-//   on mobile, replacing the bottom nav bar)
+// ---   MOBILE HEADER QUICK-ACTION MENU     ---
+//  (Menu / Export buttons shown only on mobile,
+//   replacing the bottom nav bar + old ribbon)
 // =============================================
 
-// Full list of navigable pages, mirroring the sidebar exactly.
-// Each entry: { page, icon, label } — 'master' and 'logout' are handled specially below.
+// Full list of navigable pages, mirroring the sidebar (plus a dedicated
+// "الطباعة" entry that bundles the print/cards actions that used to live
+// in the desktop ribbon). 'master' and 'logout' are appended separately below.
 window.MOBILE_NAV_PAGES = [
     { page: 'dashboard', icon: 'fa-chart-line', label: 'الرئيسية' },
     { page: 'statistics', icon: 'fa-chart-pie', label: 'إحصائيات وتقارير' },
@@ -7663,17 +7704,16 @@ window.MOBILE_NAV_PAGES = [
     { page: 'hidden', icon: 'fa-eye-slash', label: 'الحالات المخفية' },
     { page: 'expenses', icon: 'fa-file-invoice-dollar', label: 'المصروفات' },
     { page: 'volunteers', icon: 'fa-user-friends', label: 'المتطوعين' },
-    { page: 'reports', icon: 'fa-print', label: 'التقارير' },
+    { page: 'reports', icon: 'fa-file-contract', label: 'التقارير' },
+    { page: 'printcenter', icon: 'fa-print', label: 'الطباعة' },
     { page: 'affidavit', icon: 'fa-file-invoice', label: 'نظام الإفادة' },
     { page: 'settings', icon: 'fa-cog', label: 'الإعدادات' },
 ];
 
 window.closeMobileMenus = function () {
     const pageMenu = document.getElementById('mobile-page-menu');
-    const printMenu = document.getElementById('mobile-print-menu');
     const overlay = document.getElementById('mobile-dropdown-overlay');
     if (pageMenu) pageMenu.classList.remove('open');
-    if (printMenu) printMenu.classList.remove('open');
     if (overlay) overlay.classList.remove('open');
 };
 
@@ -7730,7 +7770,6 @@ window.buildMobilePageMenu = function () {
 
 window.toggleMobilePageMenu = function () {
     const pageMenu = document.getElementById('mobile-page-menu');
-    const printMenu = document.getElementById('mobile-print-menu');
     const overlay = document.getElementById('mobile-dropdown-overlay');
     if (!pageMenu) return;
 
@@ -7739,19 +7778,6 @@ window.toggleMobilePageMenu = function () {
     if (!isOpen) {
         window.buildMobilePageMenu();
         pageMenu.classList.add('open');
-        if (overlay) overlay.classList.add('open');
-    }
-};
-
-window.toggleMobilePrintMenu = function () {
-    const printMenu = document.getElementById('mobile-print-menu');
-    const overlay = document.getElementById('mobile-dropdown-overlay');
-    if (!printMenu) return;
-
-    const isOpen = printMenu.classList.contains('open');
-    window.closeMobileMenus();
-    if (!isOpen) {
-        printMenu.classList.add('open');
         if (overlay) overlay.classList.add('open');
     }
 };

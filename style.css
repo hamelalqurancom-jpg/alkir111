@@ -315,7 +315,7 @@ body {
     transform: rotate(90deg);
 }
 
-/* ===== Mobile Header Quick Actions (Menu / Print / Export) =====
+/* ===== Mobile Header Quick Actions (Menu / Export) =====
    Hidden by default (desktop). Revealed inside the mobile media query below. */
 .mobile-header-actions {
     display: none;
@@ -335,11 +335,6 @@ body {
     color: white;
 }
 
-#mobile-print-btn {
-    background: #3b82f6;
-    color: white;
-}
-
 #mobile-export-btn {
     background: #16a34a;
     color: white;
@@ -347,17 +342,19 @@ body {
 
 .mobile-dropdown-menu {
     display: none;
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 0;
+    position: fixed;
+    top: 65px;
+    left: 12px;
+    right: 12px;
     background: white;
     border: 1px solid var(--border-color);
     border-radius: 14px;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
-    width: 250px;
-    max-height: 70vh;
+    width: auto;
+    max-width: 320px;
+    max-height: 75vh;
     overflow-y: auto;
-    z-index: 3000;
+    z-index: 3500;
     padding: 8px;
 }
 
@@ -1718,16 +1715,12 @@ body {
         overflow-x: hidden;
     }
 
+    /* The ribbon (طباعة بالتصنيف / طباعة / تصدير إكسيل / ربط الفلاشة / إضافة حالة)
+       is hidden entirely on mobile. Export + Print now live in the header
+       quick-actions menu, and "إضافة حالة جديدة" already has its own button
+       inside the إدارة الحالات (cases) page itself. */
     .ribbon {
-        flex-direction: row;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        padding: 10px 5px;
-        gap: 10px;
-        background: transparent;
-        border-bottom: none;
-        padding-bottom: 20px;
-        /* Space for scrollbar */
+        display: none !important;
     }
 
     .ribbon-group {
@@ -2146,26 +2139,9 @@ body {
         display: none;
     }
 
-    /* مجموعة السنكرونية - نصغرها */
+    /* مجموعة السنكرونية مخفية من الهيدر على الموبايل — حالة الاتصال متاحة الآن من صفحة الإعدادات */
     #sync-indicator-group {
-        padding: 3px 7px !important;
-        gap: 5px !important;
-        border-radius: 8px !important;
-        flex-shrink: 0;
-    }
-
-    #sync-indicator-group #sync-status {
-        font-size: 0.65rem !important;
-        max-width: 70px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    #sync-indicator-group .icon-btn {
-        width: 24px !important;
-        height: 24px !important;
-        font-size: 0.7rem !important;
+        display: none !important;
     }
 
     /* زووم كنترول - أصغر وأوضح */
@@ -2200,7 +2176,7 @@ body {
         flex-shrink: 0;
     }
 
-    /* أزرار الإجراءات السريعة (القائمة / الطباعة / الإكسبورت) في الهيدر */
+    /* أزرار الإجراءات السريعة (القائمة / الإكسبورت) في الهيدر */
     .mobile-header-actions {
         order: -1;
         /* تظهر أول حاجة في صف الأدوات */
@@ -2214,15 +2190,6 @@ body {
         font-size: 0.95rem !important;
         flex-shrink: 0;
         border-radius: 10px !important;
-    }
-
-    .mobile-dropdown-menu {
-        position: fixed;
-        top: 60px;
-        left: 10px;
-        right: 10px;
-        width: auto;
-        max-width: none;
     }
 
     /* خانات البحث - الأولى (رقم البحث) */
