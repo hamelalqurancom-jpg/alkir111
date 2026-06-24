@@ -1,0 +1,273 @@
+<!-- ============================================
+     تعديلات index.html لدمج نظام المزامنة
+     إضف هذه الأسطر في ملف index.html
+     ============================================ -->
+
+<!-- 1. أضف هذه الملفات في قسم <head> قبل </head> -->
+<!--
+    ملاحظة: تأكد من إضافتها في الترتيب الصحيح:
+    1. offline-sync.js (النظام الأساسي)
+    2. offline-sync-integration.js (التكامل مع الواجهة)
+-->
+
+<script src="offline-sync.js"></script>
+<script src="offline-sync-integration.js"></script>
+
+<!-- 2. أضف هذا الأسلوب CSS في قسم <style> في ملف style.css -->
+
+/*
+ * أنماط مؤشر حالة الاتصال
+ */
+#sync-status-indicator {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    border-radius: 20px;
+    background: #10b981;
+    color: white;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#sync-status-indicator:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+#sync-status-indicator[data-status="synced"] {
+    background: #10b981;
+}
+
+#sync-status-indicator[data-status="pending"] {
+    background: #f59e0b;
+    animation: pulse-warning 2s infinite;
+}
+
+#sync-status-indicator[data-status="offline"] {
+    background: #ef4444;
+    animation: pulse-error 1s infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes pulse-error {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+#pending-count-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    border: 2px solid white;
+    animation: badge-pop 0.3s ease;
+}
+
+@keyframes badge-pop {
+    0% {
+        transform: scale(0);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ============================================
+   مثال على التعديلات في script.js
+   ============================================ */
+
+// عند إضافة حالة جديدة
+window.addCase = async function(caseData) {
+    // ... معالجة البيانات ...
+
+    // حفظ مع المزامنة التلقائية
+    const operationId = window.saveWithSync('case', 'add', {
+        name: caseData.name,
+        phone: caseData.phone,
+        status: caseData.status,
+        notes: caseData.notes,
+        createdAt: new Date().toISOString()
+    });
+
+    console.log('✅ تم إضافة الحالة وإدراجها في قائمة المزامنة:', operationId);
+
+    // تحديث الواجهة
+    if (window.db && window.auth.currentUser) {
+        // مزامنة فورية إذا كان الإنترنت متصلاً
+        try {
+            await window.db.collection('cases').add(caseData);
+        } catch (error) {
+            console.error('⚠️ لم يتمكن من المزامنة الفورية:', error);
+        }
+    }
+
+    // إعادة تحميل قائمة الحالات
+    window.displayCases();
+};
+
+// عند تحديث حالة موجودة
+window.updateCase = async function(caseId, updatedData) {
+    // حفظ التحديث في قائمة المزامنة
+    const operationId = window.saveWithSync('case', 'update', {
+        id: caseId,
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+    });
+
+    console.log('✅ تم تحديث الحالة:', operationId);
+
+    // محاولة المزامنة الفورية
+    if (window.db && window.auth.currentUser) {
+        try {
+            await window.db.collection('cases').doc(caseId).update(updatedData);
+        } catch (error) {
+            console.error('⚠️ لم يتمكن من المزامنة الفورية:', error);
+        }
+    }
+
+    window.displayCases();
+};
+
+// عند حذف حالة
+window.deleteCase = async function(caseId) {
+    // حفظ الحذف في قائمة المزامنة
+    const operationId = window.deleteWithSync('case', caseId);
+
+    console.log('✅ تم حذف الحالة:', operationId);
+
+    // محاولة الحذف الفوري
+    if (window.db && window.auth.currentUser) {
+        try {
+            await window.db.collection('cases').doc(caseId).delete();
+        } catch (error) {
+            console.error('⚠️ لم يتمكن من الحذف الفوري:', error);
+        }
+    }
+
+    window.displayCases();
+};
+
+// الحصول على حالة الاتصال
+window.checkSyncStatus = function() {
+    const status = window.getSyncStatus();
+    console.log('📊 حالة المزامنة الحالية:', status);
+    return status;
+};
+
+// مثال على إضافة مستمع لأحداث المزامنة
+window.setupSyncListener = function() {
+    window.offlineSync.addListener((event) => {
+        switch (event.type) {
+            case 'connection_lost':
+                console.log('🔴 تم قطع الاتصال بالإنترنت');
+                // يمكن إظهار رسالة تحذير للمستخدم
+                break;
+            
+            case 'connection_restored':
+                console.log('🟢 تم استعادة الاتصال بالإنترنت');
+                // يمكن إعادة تحميل البيانات من الخادم
+                break;
+            
+            case 'operation_synced':
+                console.log('✅ تمت مزامنة عملية:', event.data.id);
+                // تحديث الواجهة
+                break;
+            
+            case 'operation_failed':
+                console.log('❌ فشلت عملية:', event.data.id);
+                // إظهار رسالة خطأ
+                break;
+            
+            case 'status_changed':
+                console.log('🔔 تغيرت حالة الاتصال:', event.data.status);
+                break;
+        }
+    });
+};
+
+// استدعاء هذه الدالة عند بدء التطبيق
+window.setupSyncListener();
+
+<!-- ============================================
+   مثال على عرض تقرير المزامنة
+   ============================================ -->
+
+window.showSyncReport = function() {
+    const stats = window.offlineSync.getStatistics();
+    
+    console.log(`
+    📊 تقرير المزامنة
+    ════════════════════════
+    📦 إجمالي العمليات: ${stats.total}
+    ⏳ العمليات المعلقة: ${stats.pending}
+    ✅ العمليات المتزامنة: ${stats.synced}
+    ❌ العمليات الفاشلة: ${stats.failed}
+    🌐 حالة الإنترنت: ${stats.isOnline ? '🟢 متصل' : '🔴 غير متصل'}
+    🕐 آخر مزامنة: ${stats.lastSyncTime ? new Date(stats.lastSyncTime).toLocaleString('ar-EG') : 'لم تتم مزامنة بعد'}
+    📈 متوسط المحاولات: ${stats.averageRetries}
+    ════════════════════════
+    `);
+};
+
+// استدعاء التقرير
+window.showSyncReport();
+
+// ============================================
+// نصائح مهمة:
+// ============================================
+
+/*
+1. تحديث معدل المزامنة:
+   - غير قيمة setInterval في checkConnection لتحديد المدة بين فحوصات الاتصال
+   - القيمة الحالية 5000 ميلي ثانية (5 ثواني)
+
+2. تخصيص عدد المحاولات:
+   - عدل قيمة maxRetries في فئة OfflineSync
+   - القيمة الحالية 5 محاولات
+
+3. معالجة أنواع بيانات مخصصة:
+   - أضف نوع جديد إلى getCollectionName() في offline-sync.js
+   - مثال: 'custom_type': 'custom_collection'
+
+4. مراقبة قائمة الانتظار:
+   - استخدم window.offlineSync.getQueue() للحصول على جميع العمليات
+   - استخدم window.offlineSync.getStatistics() للحصول على الإحصائيات
+
+5. حفظ البيانات المحلية:
+   - البيانات تُحفظ تلقائيًا في localStorage
+   - يمكن الوصول إليها حتى بعد إغلاق التطبيق
+
+6. تصدير واستيراد:
+   - استخدم exportQueueAsJSON() لنسخ احتياطي
+   - استخدم importQueueFromJSON() لاستعادة البيانات
+*/
