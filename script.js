@@ -2501,6 +2501,8 @@ window.renderPage = (page, contextId = null) => {
                             </button>
                         </div>
                     </div>
+
+                    ${window.getMessagesSettingsHTML ? window.getMessagesSettingsHTML() : ''}
                 `;
             break;
     }
@@ -2525,6 +2527,13 @@ window.renderPage = (page, contextId = null) => {
                 }
             });
         }
+        
+        // تحديث حالة الحركات المعلقة
+        setTimeout(() => {
+            if (window.updatePendingOperationsDisplay) {
+                window.updatePendingOperationsDisplay();
+            }
+        }, 500);
     }
 }
 
@@ -3365,10 +3374,10 @@ window.addNewDonation = () => {
     saveData();
     renderPage('donations');
 
-    // WhatsApp Notification: Thank You
+    // WhatsApp Notification: Thank You (مع الرسائل المخصصة)
     if (phone && phone.length >= 10) {
-        const msg = `شكراً جزيلاً لك أستاذ/ة ${donor} على تبرعك الكريم بمبلغ ${amount} ج.م لصالح ${appData.charityName || 'جمعية الخير'}. جزاكم الله خيراً.`;
-        window.sendWhatsAppMessage(phone, msg);
+        const charityName = appData.charityName || 'جمعية الخير';
+        window.sendCustomDonationMessage(phone, donor, amount, charityName);
     }
 };
 
@@ -3948,11 +3957,11 @@ window.addNewAidRecord = () => {
         saveData();
         renderPage('expenses');
 
-        // WhatsApp Notification: Aid Collection
+        // WhatsApp Notification: Aid Collection (مع الرسائل المخصصة)
         const caseObj = appData.cases.find(c => (nationalId && c.nationalId === nationalId) || c.name === beneficiary);
         if (caseObj && caseObj.phone && caseObj.phone.length >= 10) {
-            const msg = `نحيطكم علماً أستاذ/ة ${beneficiary} بأنه تم تسجيل صرف مساعدة لكم بقيمة ${amount} ${mode === 'inkind' ? 'عيني' : 'ج.م'} بتاريخ ${date}. مع تحيات ${appData.charityName || 'جمعية الخير'}.`;
-            window.sendWhatsAppMessage(caseObj.phone, msg);
+            const charityName = appData.charityName || 'جمعية الخير';
+            window.sendCustomAidMessage(caseObj.phone, beneficiary, amount, date, mode, charityName);
         }
     } else {
         alert('يرجى اختيار اسم المستفيد والمبلغ/الكمية');
@@ -7781,3 +7790,500 @@ window.toggleMobilePageMenu = function () {
         if (overlay) overlay.classList.add('open');
     }
 };
+
+// ============================================
+// 🎯 نظام الرسائل المخصصة + التصفير + العمليات
+// ============================================
+
+// --- 1️⃣ نظام الرسائل المخصصة ---
+window.getDefaultMessages = () => ({
+    donationMessage: `شكراً جزيلاً لك أستاذ/ة {{الاسم}} على تبرعك الكريم بمبلغ {{المبلغ}} ج.م لصالح {{اسم_الجمعية}}. جزاكم الله خيراً.`,
+    aidMessage: `نحيطكم علماً أستاذ/ة {{الاسم}} بأنه تم تسجيل صرف مساعدة لكم بقيمة {{المبلغ}} {{النوع}} بتاريخ {{التاريخ}}. مع تحيات {{اسم_الجمعية}}.`
+});
+
+window.getCustomMessages = () => {
+    const defaults = window.getDefaultMessages();
+    return {
+        donationMessage: localStorage.getItem('custom_donation_message') || defaults.donationMessage,
+        aidMessage: localStorage.getItem('custom_aid_message') || defaults.aidMessage
+    };
+};
+
+window.saveCustomMessages = () => {
+    const donationMsg = document.getElementById('custom-donation-msg')?.value || '';
+    const aidMsg = document.getElementById('custom-aid-msg')?.value || '';
+    if (!donationMsg.trim() || !aidMsg.trim()) {
+        alert('❌ جميع الرسائل يجب أن تحتوي على نصوص');
+        return false;
+    }
+    localStorage.setItem('custom_donation_message', donationMsg);
+    localStorage.setItem('custom_aid_message', aidMsg);
+    alert('✅ تم حفظ الرسائل بنجاح!');
+    return true;
+};
+
+window.resetMessagesToDefault = () => {
+    if (!confirm('⚠️ هل أنت متأكد من إعادة تعيين الرسائل؟')) return;
+    localStorage.removeItem('custom_donation_message');
+    localStorage.removeItem('custom_aid_message');
+    alert('✅ تم إعادة تعيين الرسائل');
+    window.renderPage('settings');
+};
+
+window.processMessageTemplate = (template, variables = {}) => {
+    let message = template;
+    for (const [key, value] of Object.entries(variables)) {
+        const placeholder = `{{${key}}}`;
+        message = message.replace(new RegExp(placeholder, 'g'), value || '');
+    }
+    return message;
+};
+
+window.sendCustomDonationMessage = (phone, donorName, amount, charityName) => {
+    if (!phone) return;
+    const messages = window.getCustomMessages();
+    const msg = window.processMessageTemplate(messages.donationMessage, {
+        'الاسم': donorName,
+        'المبلغ': amount,
+        'اسم_الجمعية': charityName
+    });
+    window.sendWhatsAppMessage(phone, msg);
+};
+
+window.sendCustomAidMessage = (phone, beneficiaryName, amount, date, type, charityName) => {
+    if (!phone) return;
+    const messages = window.getCustomMessages();
+    const typeLabel = type === 'inkind' ? 'عيني' : 'ج.م';
+    const msg = window.processMessageTemplate(messages.aidMessage, {
+        'الاسم': beneficiaryName,
+        'المبلغ': amount,
+        'النوع': typeLabel,
+        'التاريخ': date,
+        'اسم_الجمعية': charityName
+    });
+    window.sendWhatsAppMessage(phone, msg);
+};
+
+// --- 2️⃣ نظام التصفير ---
+window.clearSyncQueue = () => {
+    if (!confirm('⚠️ تحذير!\n\nهذا سيمسح جميع العمليات المعلقة (الحركات) غير المزامنة.\n\n✅ البيانات الأساسية ستبقى محفوظة.\n\nهل تريد المتابعة؟')) return false;
+    if (!confirm('❌ تأكيد نهائي!\n\nهذا الإجراء لا يمكن التراجع عنه.\nهل أنت متأكد؟')) return false;
+
+    try {
+        localStorage.removeItem('sync_queue');
+        localStorage.removeItem('sync_status');
+        localStorage.removeItem('sync_pending_count');
+        localStorage.removeItem('last_sync_time');
+        
+        if (window.offlineSync) {
+            window.offlineSync.syncQueue = [];
+            window.offlineSync.saveQueue();
+            window.offlineSync.updatePendingCount();
+            window.offlineSync.notifyListeners('queue_cleared', {});
+        }
+        
+        alert('✅ تم تصفير البرنامج بنجاح!\n\nتم حذف جميع الحركات المعلقة.\nالبيانات الأساسية محفوظة بأمان.');
+        if (window.renderPage) window.renderPage('settings');
+        return true;
+    } catch (error) {
+        alert('❌ حدث خطأ أثناء التصفير:\n' + error.message);
+        return false;
+    }
+};
+
+window.getMessagesSettingsHTML = () => {
+    const messages = window.getCustomMessages();
+    const defaults = window.getDefaultMessages();
+    return `
+                    <!-- رسائل الـ WhatsApp المخصصة -->
+                    <div class="card" style="border-top: 4px solid #059669; margin-bottom: 20px;">
+                        <div class="card-header" style="background: #f0fdf4;">
+                            <h2 style="color: #059669;"><i class="fab fa-whatsapp"></i> رسائل الإخطار عبر WhatsApp</h2>
+                            <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">قم بتخصيص نصوص الرسائل المرسلة تلقائياً</p>
+                        </div>
+                        <div style="padding: 25px;">
+                            <div style="background: #e0f2fe; border: 1px solid #0284c7; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                                <p style="color: #0369a1; font-weight: 700; margin: 0 0 10px 0;">
+                                    <i class="fas fa-info-circle"></i> المتغيرات المتاحة:
+                                </p>
+                                <div style="color: #0369a1; font-size: 0.9rem; line-height: 1.8;">
+                                    • {{الاسم}} - اسم المتبرع أو المستفيد
+                                    <br>• {{المبلغ}} - المبلغ المتبرع به أو المصروف
+                                    <br>• {{اسم_الجمعية}} - اسم الجمعية
+                                    <br>• {{التاريخ}} - تاريخ العملية
+                                    <br>• {{النوع}} - نوع الصرف
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                                <div>
+                                    <label style="display: block; font-weight: 800; color: #059669; margin-bottom: 10px;">
+                                        <i class="fas fa-gift"></i> رسالة الشكر على التبرع
+                                    </label>
+                                    <textarea 
+                                        id="custom-donation-msg"
+                                        class="office-input"
+                                        rows="6"
+                                        style="font-size: 0.9rem; font-family: 'Cairo', sans-serif; width: 100%; padding: 12px; border: 1px solid #d1f2eb; border-radius: 8px; resize: vertical;"
+                                    >${messages.donationMessage}</textarea>
+                                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                                        <i class="fas fa-lightbulb"></i> تُرسل عند تسجيل تبرع جديد
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-weight: 800; color: #0369a1; margin-bottom: 10px;">
+                                        <i class="fas fa-hand-holding-heart"></i> رسالة تأكيد الصرف
+                                    </label>
+                                    <textarea 
+                                        id="custom-aid-msg"
+                                        class="office-input"
+                                        rows="6"
+                                        style="font-size: 0.9rem; font-family: 'Cairo', sans-serif; width: 100%; padding: 12px; border: 1px solid #e0f2fe; border-radius: 8px; resize: vertical;"
+                                    >${messages.aidMessage}</textarea>
+                                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                                        <i class="fas fa-lightbulb"></i> تُرسل عند تسجيل صرف مساعدة
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 15px; margin-top: 25px; flex-wrap: wrap;">
+                                <button 
+                                    class="btn-primary"
+                                    style="background: linear-gradient(135deg, #059669, #047857); padding: 12px 30px; font-weight: 800; flex: 1; min-width: 200px;"
+                                    onclick="window.saveCustomMessages(); setTimeout(() => window.renderPage('settings'), 500);"
+                                >
+                                    <i class="fas fa-save"></i> حفظ الرسائل المخصصة
+                                </button>
+                                <button 
+                                    class="btn-secondary"
+                                    style="border-color: #cbd5e1; color: #64748b; padding: 12px 30px; font-weight: 800;"
+                                    onclick="window.resetMessagesToDefault();"
+                                >
+                                    <i class="fas fa-redo"></i> إعادة تعيين للافتراضي
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- تصفير البرنامج -->
+                    <div class="card" style="border-top: 4px solid #f97316; margin-bottom: 20px;">
+                        <div class="card-header" style="background: #fff7ed;">
+                            <h2 style="color: #ea580c;"><i class="fas fa-broom"></i> تصفير البرنامج</h2>
+                            <p style="color: #666; font-size: 0.85rem; margin-top: 5px;">نظّف الحركات المعلقة واستعد من جديد</p>
+                        </div>
+                        <div style="padding: 25px;">
+                            <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                                <p style="color: #92400e; font-weight: 700; margin: 0 0 12px 0;">
+                                    <i class="fas fa-info-circle"></i> ماذا يفعل تصفير البرنامج؟
+                                </p>
+                                <div style="color: #78350f; font-size: 0.9rem; line-height: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div>
+                                        <p style="font-weight: 800; margin: 0 0 8px 0;">✅ سيتم حذفه:</p>
+                                        <ul style="margin: 0; padding-right: 20px;">
+                                            <li>الحركات المعلقة</li>
+                                            <li>قائمة الانتظار</li>
+                                            <li>حالة الاتصال</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <p style="font-weight: 800; margin: 0 0 8px 0;">🔒 سيبقى محفوظاً:</p>
+                                        <ul style="margin: 0; padding-right: 20px;">
+                                            <li>❌ الحالات</li>
+                                            <li>❌ التبرعات</li>
+                                            <li>❌ المصروفات</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button 
+                                class="btn-primary"
+                                style="width: 100%; background: linear-gradient(135deg, #f97316, #ea580c); padding: 18px; font-weight: 800; font-size: 1.1rem; border-radius: 10px; justify-content: center;"
+                                onclick="window.clearSyncQueue();"
+                            >
+                                <i class="fas fa-broom"></i> تصفير البرنامج الآن
+                            </button>
+                            <p style="font-size: 0.8rem; color: #e11d48; text-align: center; margin-top: 12px; font-weight: 800;">
+                                ⚠️ تحذير: هذا الإجراء لا يمكن التراجع عنه!
+                            </p>
+                        </div>
+                    </div>
+    `;
+};
+
+// --- 3️⃣ نظام عرض العمليات المعلقة ---
+window.updatePendingOperationsDisplay = function() {
+    if (!window.offlineSync) return;
+
+    const stats = window.offlineSync.getStatistics();
+    const pendingCount = window.offlineSync.syncQueue.length;
+    
+    let statusIndicator = document.getElementById('pending-ops-status-indicator');
+    
+    if (!statusIndicator) {
+        statusIndicator = document.createElement('div');
+        statusIndicator.id = 'pending-ops-status-indicator';
+        statusIndicator.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 25px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            direction: rtl;
+        `;
+        document.body.appendChild(statusIndicator);
+    }
+
+    let statusHTML = '';
+    let bgColor = '';
+
+    if (!stats.isOnline) {
+        statusHTML = `
+            <i class="fas fa-wifi" style="font-size: 16px;"></i>
+            <span>🔴 غير متصل</span>
+            ${pendingCount > 0 ? `<span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 8px;">${pendingCount} عملية</span>` : ''}
+        `;
+        bgColor = '#ef4444';
+    } else if (pendingCount > 0) {
+        const operationWord = pendingCount === 1 ? 'عملية' : 'عمليات';
+        statusHTML = `
+            <i class="fas fa-cloud-upload-alt" style="font-size: 16px; animation: pulse 1.5s infinite;"></i>
+            <span>في انتظار رفع <strong>${pendingCount}</strong> ${operationWord}</span>
+        `;
+        bgColor = '#f59e0b';
+    } else {
+        statusHTML = `
+            <i class="fas fa-check-circle" style="font-size: 16px; color: #10b981;"></i>
+            <span>✅ جميع العمليات محدثة</span>
+        `;
+        bgColor = '#10b981';
+    }
+
+    statusIndicator.innerHTML = statusHTML;
+    statusIndicator.style.background = bgColor;
+    statusIndicator.style.color = 'white';
+    statusIndicator.onclick = () => window.showPendingOperationsDetails();
+
+    if (pendingCount > 0) {
+        statusIndicator.style.animation = 'pulse 1.5s infinite';
+    } else {
+        statusIndicator.style.animation = 'none';
+    }
+};
+
+window.showPendingOperationsDetails = function() {
+    if (!window.offlineSync) return;
+
+    const stats = window.offlineSync.getStatistics();
+    const pendingCount = window.offlineSync.syncQueue.length;
+    const queue = window.offlineSync.syncQueue;
+
+    let detailsHTML = `
+        <div style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 10000;
+            direction: rtl;
+            text-align: right;
+            font-family: 'Cairo', sans-serif;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #333; font-size: 1.5rem;">📊 تفاصيل العمليات</h3>
+                <button onclick="this.closest('div').remove()" style="
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    cursor: pointer;
+                    color: #999;
+                ">×</button>
+            </div>
+
+            <div style="background: #f0fdf4; border: 2px solid #10b981; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #059669; font-weight: 700;">
+                    🟢 حالة الاتصال: ${stats.isOnline ? '✅ متصل' : '❌ غير متصل'}
+                </p>
+            </div>
+
+            <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <p style="margin: 10px 0 0 0; color: #ea580c; font-weight: 700; font-size: 1.1rem;">
+                    ⏳ العمليات المعلقة: <span style="color: #dc2626; font-size: 1.3rem;">${pendingCount}</span>
+                </p>
+            </div>
+    `;
+
+    if (pendingCount > 0) {
+        detailsHTML += `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <p style="margin: 0 0 12px 0; font-weight: 700; color: #333;">📋 قائمة العمليات:</p>
+        `;
+
+        queue.forEach((op, index) => {
+            const typeLabel = {'case': '👤 حالة', 'donor': '💚 متبرع', 'expense': '💰 مصروف'}[op.type] || op.type;
+            const actionLabel = {'add': '➕ إضافة', 'update': '✏️ تحديث', 'delete': '🗑️ حذف'}[op.action] || op.action;
+
+            detailsHTML += `
+                <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-right: 4px solid #f97316;">
+                    <p style="margin: 0; font-size: 0.9rem;">
+                        <strong>${index + 1}.</strong> ${typeLabel} - ${actionLabel}
+                    </p>
+                    <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #666;">
+                        🕐 ${new Date(op.timestamp).toLocaleTimeString('ar-EG')}
+                    </p>
+                </div>
+            `;
+        });
+
+        detailsHTML += `</div>`;
+    }
+
+    detailsHTML += `
+            <button onclick="this.closest('div').remove()" style="
+                background: #6366f1;
+                color: white;
+                border: none;
+                padding: 12px 30px;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 700;
+                cursor: pointer;
+                width: 100%;
+            ">✓ حسناً</button>
+        </div>
+    `;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999;`;
+    overlay.onclick = () => overlay.remove();
+    document.body.appendChild(overlay);
+
+    const detailsDiv = document.createElement('div');
+    detailsDiv.innerHTML = detailsHTML;
+    detailsDiv.firstChild.onclick = (e) => e.stopPropagation();
+    overlay.appendChild(detailsDiv);
+};
+
+window.showUploadSuccessMessage = function(count = 'جميع') {
+    const message = document.createElement('div');
+    message.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 18px 25px;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        font-family: 'Cairo', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        z-index: 10001;
+        animation: slideIn 0.3s ease, slideOut 0.3s ease 4.7s;
+        direction: rtl;
+        text-align: right;
+    `;
+
+    message.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+            <div>
+                <p style="margin: 0; font-weight: 800;">✅ تم رفع جميع العمليات بنجاح!</p>
+                <p style="margin: 4px 0 0 0; font-size: 0.9rem; opacity: 0.9;">تم مزامنة البيانات مع الخادم</p>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(message);
+
+    setTimeout(() => {
+        message.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => message.remove(), 300);
+    }, 5000);
+};
+
+window.setupPendingOpsListener = function() {
+    if (!window.offlineSync) return;
+
+    window.offlineSync.addListener((event) => {
+        if (['operation_added', 'operation_synced', 'operation_removed', 'status_changed'].includes(event.type)) {
+            setTimeout(() => window.updatePendingOperationsDisplay(), 100);
+        }
+    });
+
+    window.updatePendingOperationsDisplay();
+};
+
+// --- 4️⃣ نظام البحث الذكي عن المتبرعين ---
+window.getUniqueDonors = function() {
+    if (!appData || !appData.donors) return [];
+
+    const uniqueDonors = [];
+    const donorNames = new Set();
+
+    appData.donors.forEach(donor => {
+        if (donor.name && !donorNames.has(donor.name)) {
+            donorNames.add(donor.name);
+            uniqueDonors.push({
+                name: donor.name,
+                count: appData.donors.filter(d => d.name === donor.name).length
+            });
+        }
+    });
+
+    return uniqueDonors.sort((a, b) => b.count - a.count);
+};
+
+window.searchDonors = function(query) {
+    const uniqueDonors = window.getUniqueDonors();
+    if (!query || query.trim() === '') return uniqueDonors;
+    return uniqueDonors.filter(donor => donor.name.includes(query));
+};
+
+// إضافة CSS animations
+if (!document.querySelector('#pending-ops-animations')) {
+    const style = document.createElement('style');
+    style.id = 'pending-ops-animations';
+    style.textContent = `
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// تشغيل المستمع عند بدء التطبيق
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(window.setupPendingOpsListener, 1000);
+    });
+} else {
+    setTimeout(window.setupPendingOpsListener, 1000);
+}
