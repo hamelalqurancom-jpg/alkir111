@@ -339,6 +339,187 @@ window.updateStatusBar = () => {
     }
 };
 
+// =====================================================================
+// PROFESSIONAL STATISTICS DASHBOARD (v2)
+// Single-pass aggregation over donations / expenses / inventory / cases.
+// Called every time the dashboard is (re)rendered so numbers always
+// reflect the latest add/edit/delete of a case, donation, or expense —
+// without ever touching localStorage/Firestore more than once per call.
+// =====================================================================
+window.computeDashboardStatsV2 = function () {
+    const donations = appData.donations || [];
+    const expenses = appData.expenses || [];
+    const cases = appData.cases || [];
+    const inventory = appData.inventory || [];
+
+    // Single pass over donations: split cash vs in-kind
+    let cashDonations = 0;
+    let inKindDonations = 0;
+    for (let i = 0; i < donations.length; i++) {
+        const amt = parseFloat(donations[i].amount) || 0;
+        if (donations[i].inkind) inKindDonations += amt;
+        else cashDonations += amt;
+    }
+    const totalDonations = cashDonations + inKindDonations;
+
+    // Single pass over expenses: split cash vs in-kind
+    let cashExpenses = 0;
+    let inKindExpenses = 0;
+    for (let i = 0; i < expenses.length; i++) {
+        const amt = parseFloat(expenses[i].amount) || 0;
+        if (expenses[i].inkind) inKindExpenses += amt;
+        else cashExpenses += amt;
+    }
+    const totalExpenses = cashExpenses + inKindExpenses;
+
+    // Current treasury balance (what's actually left, not all-time totals)
+    const cashBalance = cashDonations - cashExpenses;
+    let inKindBalance = 0;
+    for (let i = 0; i < inventory.length; i++) {
+        inKindBalance += (parseFloat(inventory[i].remainingQuantity) || 0) * (parseFloat(inventory[i].unitPrice) || 0);
+    }
+    const totalBalance = cashBalance + inKindBalance;
+
+    return {
+        totalDonations, cashDonations, inKindDonations,
+        totalExpenses, cashExpenses, inKindExpenses,
+        cashBalance, inKindBalance, totalBalance,
+        casesCount: cases.length
+    };
+};
+
+// Builds a single stat card's markup. value is a raw number; the counter
+// animation (window.animateStatCountersV2) picks it up from data-target.
+window._buildStatCardV2 = function (opts) {
+    const {
+        icon, title, value, unit = 'ج.م', theme, tooltip,
+        headline = false, decimals = 0
+    } = opts;
+    return `
+        <div class="stat-card-v2 stat-card-v2--${theme}${headline ? ' stat-card-v2--headline' : ''}" data-tooltip="${tooltip}">
+            <div class="stat-card-v2-icon"><i class="fas ${icon}"></i></div>
+            <div class="stat-card-v2-body">
+                <h4>${title}</h4>
+                <div class="stat-counter-wrap">
+                    <span class="stat-counter" data-target="${value}" data-decimals="${decimals}">0</span>
+                    <span class="stat-unit">${unit}</span>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+// Renders the full grouped dashboard (revenue / expenses / balance / general).
+// Returns HTML string ready to inject into #dash-sec-stats.
+window.buildStatsDashboardV2HTML = function () {
+    const s = window.computeDashboardStatsV2();
+    const b = window._buildStatCardV2;
+
+    const revenueCards = [
+        b({ theme: 'revenue', headline: true, icon: 'fa-hand-holding-usd', title: 'إجمالي الوارد', value: s.totalDonations, tooltip: 'إجمالي كل ما وصل للجمعية من تبرعات نقدية وعينية منذ البداية' }),
+        b({ theme: 'revenue', icon: 'fa-donate', title: 'إجمالي التبرعات (عيني + نقدي)', value: s.totalDonations, tooltip: 'مجموع التبرعات النقدية والعينية معاً' }),
+        b({ theme: 'revenue', icon: 'fa-box-open', title: 'إجمالي التبرعات العينية', value: s.inKindDonations, tooltip: 'قيمة التبرعات العينية (أصناف) فقط منذ البداية' }),
+        b({ theme: 'revenue', icon: 'fa-money-bill-wave', title: 'إجمالي التبرعات النقدية', value: s.cashDonations, tooltip: 'قيمة التبرعات النقدية فقط منذ البداية' }),
+    ].join('');
+
+    const expenseCards = [
+        b({ theme: 'expense', headline: true, icon: 'fa-file-invoice-dollar', title: 'إجمالي المصروفات (عيني + نقدي)', value: s.totalExpenses, tooltip: 'مجموع كل ما تم صرفه نقدياً وعينياً منذ البداية' }),
+        b({ theme: 'expense', icon: 'fa-boxes', title: 'إجمالي المصروفات العينية', value: s.inKindExpenses, tooltip: 'قيمة ما تم صرفه من أصناف عينية فقط' }),
+        b({ theme: 'expense', icon: 'fa-hand-holding-heart', title: 'إجمالي المصروفات النقدية', value: s.cashExpenses, tooltip: 'قيمة ما تم صرفه نقداً فقط' }),
+    ].join('');
+
+    const balanceCards = [
+        b({ theme: 'balance', headline: true, icon: 'fa-wallet', title: 'إجمالي المتبقي في الخزينة (عيني + نقدي)', value: s.totalBalance, tooltip: 'الرصيد الحالي المتاح فعلياً: النقدية المتبقية + قيمة المخزون العيني المتبقي' }),
+        b({ theme: 'balance', icon: 'fa-archive', title: 'إجمالي المتبقي في الخزينة العينية', value: s.inKindBalance, tooltip: 'القيمة الحالية للمخزون العيني المتبقي (بعد الصرف)' }),
+        b({ theme: 'balance', icon: 'fa-coins', title: 'إجمالي المتبقي في الخزينة النقدية', value: s.cashBalance, tooltip: 'الرصيد النقدي الحالي المتاح فعلياً' }),
+    ].join('');
+
+    const generalCards = [
+        b({ theme: 'general', headline: true, icon: 'fa-users', title: 'عدد الحالات المسجلة', value: s.casesCount, unit: 'حالة', tooltip: 'إجمالي عدد الحالات المسجلة في النظام حالياً' }),
+    ].join('');
+
+    return `
+        <div class="stats-dashboard-v2" id="stats-dashboard-v2">
+            <div class="stats-group stats-group--revenue">
+                <div class="stats-group-header"><span class="stats-group-icon"><i class="fas fa-hand-holding-usd"></i></span><span>الإيرادات</span></div>
+                <div class="stat-cards-row grid-cols-4">${revenueCards}</div>
+            </div>
+            <div class="stats-group stats-group--expense">
+                <div class="stats-group-header"><span class="stats-group-icon"><i class="fas fa-file-invoice-dollar"></i></span><span>المصروفات</span></div>
+                <div class="stat-cards-row grid-cols-3">${expenseCards}</div>
+            </div>
+            <div class="stats-group stats-group--balance">
+                <div class="stats-group-header"><span class="stats-group-icon"><i class="fas fa-wallet"></i></span><span>الرصيد الحالي</span></div>
+                <div class="stat-cards-row grid-cols-3">${balanceCards}</div>
+            </div>
+            <div class="stats-group stats-group--general">
+                <div class="stats-group-header"><span class="stats-group-icon"><i class="fas fa-chart-pie"></i></span><span>إحصائيات عامة</span></div>
+                <div class="stat-cards-row grid-cols-1">${generalCards}</div>
+            </div>
+        </div>
+    `;
+};
+
+// A tiny skeleton grid shown for one animation frame before the real
+// numbers are injected — gives a polished "loading" feel even though the
+// underlying data is already in memory.
+window.buildStatsDashboardSkeletonHTML = function () {
+    const skeletonCard = () => `
+        <div class="stat-card-v2 is-skeleton">
+            <div class="skeleton-block skeleton-icon"></div>
+            <div class="stat-card-v2-body">
+                <div class="skeleton-block skeleton-title"></div>
+                <div class="skeleton-block skeleton-number"></div>
+            </div>
+        </div>
+    `;
+    const row = (count, cols) => `<div class="stat-cards-row grid-cols-${cols}">${Array.from({ length: count }).map(skeletonCard).join('')}</div>`;
+    return `
+        <div class="stats-dashboard-v2" id="stats-dashboard-v2">
+            <div class="stats-group stats-group--revenue">${row(4, 4)}</div>
+            <div class="stats-group stats-group--expense">${row(3, 3)}</div>
+            <div class="stats-group stats-group--balance">${row(3, 3)}</div>
+            <div class="stats-group stats-group--general">${row(1, 1)}</div>
+        </div>
+    `;
+};
+
+// Animates every .stat-counter inside #dash-sec-stats from 0 to its
+// data-target value, with thousands separators, over ~1s.
+window.animateStatCountersV2 = function () {
+    const counters = document.querySelectorAll('#dash-sec-stats .stat-counter');
+    counters.forEach(el => {
+        const target = parseFloat(el.getAttribute('data-target')) || 0;
+        const decimals = parseInt(el.getAttribute('data-decimals'), 10) || 0;
+        const duration = 900;
+        const start = performance.now();
+        const format = (n) => n.toLocaleString('en-US', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+
+        function tick(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // ease-out-cubic
+            const current = target * eased;
+            el.textContent = format(current);
+            if (progress < 1) {
+                requestAnimationFrame(tick);
+            } else {
+                el.textContent = format(target);
+            }
+        }
+        requestAnimationFrame(tick);
+    });
+};
+
+// Re-renders just the stats cards (used by the skeleton -> real-data swap
+// and can also be called standalone to refresh numbers without touching
+// charts/inventory/category sections).
+window.refreshStatsDashboardV2 = function () {
+    const container = document.getElementById('dash-sec-stats');
+    if (!container) return;
+    container.innerHTML = window.buildStatsDashboardV2HTML();
+    window.animateStatCountersV2();
+};
+
 window.saveData = (writeToFile = true) => {
     window.updateStatusBar();
     const uid = localStorage.getItem('logged_charity_id');
@@ -990,20 +1171,7 @@ window.renderPage = (page, contextId = null) => {
                 };
             });
 
-            const cashDonations = (appData.donations || []).filter(d => !d.inkind).reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
             const inventory = appData.inventory || [];
-            const inKindValue = inventory.reduce((sum, item) => sum + ((parseFloat(item.remainingQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0);
-            const totalDonations = cashDonations + (inventory.reduce((sum, item) => sum + ((parseFloat(item.totalQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0));
-            const actualAidDisbursed = (appData.expenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-            const currentCashBalance = cashDonations - (appData.expenses || []).filter(e => !e.inkind).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-            const totalAssetsValue = currentCashBalance + inKindValue;
-
-            // Total in-kind value ever received (not just what remains in stock) - so that
-            // cashDonations + totalInKindReceived === totalDonations exactly, matching the
-            // "إجمالي الوارد" box above.
-            const totalInKindReceived = inventory.reduce((sum, item) => sum + ((parseFloat(item.totalQuantity) || 0) * (parseFloat(item.unitPrice) || 0)), 0);
-            const cashFromSubtraction = totalDonations - totalInKindReceived;   // = cashDonations
-            const inKindFromSubtraction = totalDonations - cashDonations;      // = totalInKindReceived
 
             html = `
                 <!-- PDF Export Button -->
@@ -1011,51 +1179,7 @@ window.renderPage = (page, contextId = null) => {
                     <i class="fas fa-file-pdf"></i> تصدير التقرير كـ PDF
                 </button>
 
-                <div id="dash-sec-stats" class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon icon-emerald"><i class="fas fa-hand-holding-usd"></i></div>
-                        <div class="stat-info">
-                            <h3>إجمالي الوارد (نقدي + عيني)</h3>
-                            <p>${totalDonations.toLocaleString()} ج.م</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon icon-blue"><i class="fas fa-users"></i></div>
-                        <div class="stat-info">
-                            <h3>الحالات النشطة</h3>
-                            <p>${(appData.cases || []).length} حالة</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon icon-orange"><i class="fas fa-hand-holding-heart"></i></div>
-                        <div class="stat-info">
-                            <h3>إجمالي المنصرف</h3>
-                            <p>${actualAidDisbursed.toLocaleString()} ج.م</p>
-                        </div>
-                    </div>
-                    <div class="stat-card" style="border: 2px solid #1d4ed8;">
-                        <div class="stat-icon" style="background: #1d4ed8; color: white;"><i class="fas fa-wallet"></i></div>
-                        <div class="stat-info">
-                            <h3 style="color: #1d4ed8;">الرصيد النقدي المتاح</h3>
-                            <p style="font-size: 1.5rem; font-weight: 800; color: #1d4ed8;">${currentCashBalance.toLocaleString()} ج.م</p>
-                            <small>إجمالي الأصول (مع المخزن): ${totalAssetsValue.toLocaleString()} ج.م</small>
-                        </div>
-                    </div>
-                    <div class="stat-card" title="الإجمالي - التبرع العيني">
-                        <div class="stat-icon icon-blue"><i class="fas fa-money-bill-wave"></i></div>
-                        <div class="stat-info">
-                            <h3>التبرع النقدي (الإجمالي - العيني)</h3>
-                            <p>${cashFromSubtraction.toLocaleString()} ج.م</p>
-                        </div>
-                    </div>
-                    <div class="stat-card" title="الإجمالي - التبرع النقدي">
-                        <div class="stat-icon" style="background:#8b5cf6; color:white;"><i class="fas fa-box-open"></i></div>
-                        <div class="stat-info">
-                            <h3>التبرع العيني (الإجمالي - النقدي)</h3>
-                            <p>${inKindFromSubtraction.toLocaleString()} ج.م</p>
-                        </div>
-                    </div>
-                </div>
+                <div id="dash-sec-stats">${window.buildStatsDashboardSkeletonHTML()}</div>
 
                 <!-- ===== DASHBOARD SECTION TOGGLES ===== -->
                 <div id="dash-toggle-bar" style="display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 0 0; padding:14px 18px; background:linear-gradient(135deg,#f8fafc,#eef2ff); border-radius:14px; border:1.5px solid #e0e7ff; align-items:center;">
@@ -1201,6 +1325,7 @@ window.renderPage = (page, contextId = null) => {
                 </div>
             `;
             setTimeout(() => window.initDashboardCharts(), 300);
+            requestAnimationFrame(() => window.refreshStatsDashboardV2());
             break;
 
         case 'statistics':
