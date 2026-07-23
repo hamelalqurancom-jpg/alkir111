@@ -176,7 +176,7 @@ window.handleRegister = async () => {
         }
 
         // Initialize empty data for this user
-        const emptyData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [] };
+        const emptyData = { cases: [], donations: [], expenses: [], volunteers: [], affidavits: [], inventory: [], distributionCycles: [] };
         await charityRef.collection('data').doc('app_state').set(emptyData);
 
         localStorage.setItem('logged_charity_name', charityName);
@@ -303,7 +303,8 @@ let appData = {
     expenses: [],
     volunteers: [],
     affidavits: [],
-    inventory: []
+    inventory: [],
+    distributionCycles: []
 };
 let currentUser = null;
 let charityProfile = {};
@@ -999,7 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.staffMode = localStorage.getItem('staff_mode') === 'true';
         window.STAFF_MODE_PASSWORD = '0000';
         // Pages allowed in staff mode
-        window.STAFF_ALLOWED_PAGES = ['cases', 'exceptional', 'donations', 'affidavit'];
+        window.STAFF_ALLOWED_PAGES = ['cases', 'exceptional', 'donations', 'affidavit', 'distribution'];
 
         if (splashScreen) splashScreen.style.display = 'flex';
 
@@ -1134,6 +1135,19 @@ window.renderPage = (page, contextId = null) => {
 
     let html = '';
     switch (page) {
+        case 'distribution':
+            pageTitle.innerText = 'دورات التوزيع الشهري';
+            if (typeof window.renderDistributionCyclesPage === 'function') {
+                contentArea.innerHTML = window.renderDistributionCyclesPage();
+                // Update sidebar active state
+                document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
+                const distLi = document.querySelector('.sidebar-nav li[data-page="distribution"]');
+                if (distLi) distLi.classList.add('active');
+            } else {
+                contentArea.innerHTML = '<div class="card" style="padding:30px; text-align:center;"><p style="color:#e11d48;">خطأ: لم يتم تحميل وحدة دورات التوزيع. يرجى تضمين ملف distribution-cycle.js</p></div>';
+            }
+            return; // Early return, html is set directly
+
         case 'master':
             pageTitle.innerText = 'لوحة تحكم الإدارة (الماستر)';
             html = `
@@ -7840,6 +7854,7 @@ window.MOBILE_NAV_PAGES = [
     { page: 'volunteers', icon: 'fa-user-friends', label: 'المتطوعين' },
     { page: 'reports', icon: 'fa-file-contract', label: 'التقارير' },
     { page: 'printcenter', icon: 'fa-print', label: 'الطباعة' },
+    { page: 'distribution', icon: 'fa-boxes', label: 'دورات التوزيع' },
     { page: 'affidavit', icon: 'fa-file-invoice', label: 'نظام الإفادة' },
     { page: 'settings', icon: 'fa-cog', label: 'الإعدادات' },
 ];

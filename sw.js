@@ -1,10 +1,11 @@
-const CACHE_NAME = 'alkhair-v2.8'; // قم بتغيير هذا الرقم عند رفع تحديث جديد لإجبار المتصفح على تحميل الملفات الجديدة
+const CACHE_NAME = 'alkhair-v2.9'; // قم بتغيير هذا الرقم عند رفع تحديث جديد لإجبار المتصفح على تحميل الملفات الجديدة
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './script.js',
   './firebase-config.js',
+  './distribution-cycle.js',
   './logo.png',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',

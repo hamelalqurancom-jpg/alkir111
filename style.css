@@ -2664,3 +2664,101 @@ body.dark-theme .stat-card-v2--general .stat-unit { color: #a78bfa; }
         margin: 0 !important;
     }
 }
+
+/* ============================================================
+   🌙 نظام دورات التوزيع الشهري - Distribution Cycles
+   ============================================================ */
+
+/* Cycle Cards hover animation */
+.distribution-cycle-card {
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s ease;
+}
+.distribution-cycle-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Sidebar Distribution item pulse animation */
+@keyframes dist-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+}
+.sidebar-nav li[data-page="distribution"] {
+    animation: dist-pulse 3s infinite;
+    border-radius: 12px;
+}
+.sidebar-nav li[data-page="distribution"]:hover {
+    background: rgba(99, 102, 241, 0.2) !important;
+    animation: none;
+}
+.sidebar-nav li[data-page="distribution"].active {
+    background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(59,130,246,0.2)) !important;
+    border: 1px solid rgba(99,102,241,0.4) !important;
+    animation: none;
+}
+
+/* Delivery status badges */
+.delivery-status-waiting  { background: #fef3c7; color: #92400e; }
+.delivery-status-delivered{ background: #d1fae5; color: #065f46; }
+.delivery-status-absent   { background: #fee2e2; color: #9b1c1c; }
+.delivery-status-deferred { background: #e0e7ff; color: #3730a3; }
+
+/* Progress bars inside cycle cards */
+.cycle-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+.cycle-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #3b82f6);
+    border-radius: 4px;
+    transition: width 0.8s ease;
+}
+
+/* Warehouse manager table */
+#warehouse-beneficiaries-tbody tr:hover {
+    background: #f8fafc !important;
+}
+
+/* QR scan screen input animation */
+#qr-scan-input:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+    outline: none;
+}
+
+/* Scan results card hover */
+#scan-search-results > div:hover {
+    border-color: #6366f1 !important;
+    background: #f5f3ff !important;
+}
+
+/* Delivery confirmation panel */
+#delivery-confirmation-panel {
+    transition: all 0.3s ease;
+}
+
+/* Wh-type-label interactive */
+.wh-type-label:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Mobile responsive for distribution */
+@media (max-width: 768px) {
+    #delivery-confirmation-panel {
+        display: none;
+    }
+    /* Show full width when panel is active */
+    #delivery-confirmation-panel.active {
+        display: block !important;
+        position: fixed;
+        inset: 0;
+        z-index: 4000;
+        border-radius: 0;
+        overflow-y: auto;
+        padding-top: 60px;
+    }
+}
