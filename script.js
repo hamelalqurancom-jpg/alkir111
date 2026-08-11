@@ -417,8 +417,7 @@ window.buildStatsDashboardV2HTML = function () {
     const b = window._buildStatCardV2;
 
     const revenueCards = [
-        b({ theme: 'revenue', headline: true, icon: 'fa-hand-holding-usd', title: 'إجمالي الوارد', value: s.totalDonations, tooltip: 'إجمالي كل ما وصل للجمعية من تبرعات نقدية وعينية منذ البداية' }),
-        b({ theme: 'revenue', icon: 'fa-donate', title: 'إجمالي التبرعات (عيني + نقدي)', value: s.totalDonations, tooltip: 'مجموع التبرعات النقدية والعينية معاً' }),
+        b({ theme: 'revenue', headline: true, icon: 'fa-donate', title: 'إجمالي التبرعات (عيني + نقدي)', value: s.totalDonations, tooltip: 'مجموع التبرعات النقدية والعينية معاً' }),
         b({ theme: 'revenue', icon: 'fa-box-open', title: 'إجمالي التبرعات العينية', value: s.inKindDonations, tooltip: 'قيمة التبرعات العينية (أصناف) فقط منذ البداية' }),
         b({ theme: 'revenue', icon: 'fa-money-bill-wave', title: 'إجمالي التبرعات النقدية', value: s.cashDonations, tooltip: 'قيمة التبرعات النقدية فقط منذ البداية' }),
     ].join('');
@@ -443,7 +442,7 @@ window.buildStatsDashboardV2HTML = function () {
         <div class="stats-dashboard-v2" id="stats-dashboard-v2">
             <div class="stats-group stats-group--revenue">
                 <div class="stats-group-header"><span class="stats-group-icon"><i class="fas fa-hand-holding-usd"></i></span><span>الإيرادات</span></div>
-                <div class="stat-cards-row grid-cols-4">${revenueCards}</div>
+                <div class="stat-cards-row grid-cols-3">${revenueCards}</div>
             </div>
             <div class="stats-group stats-group--expense">
                 <div class="stats-group-header"><span class="stats-group-icon"><i class="fas fa-file-invoice-dollar"></i></span><span>المصروفات</span></div>

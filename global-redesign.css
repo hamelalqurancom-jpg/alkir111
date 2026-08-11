@@ -1,0 +1,244 @@
+/* ============================================================
+   🎨 GLOBAL REDESIGN — شكل دورة التوزيع بدون تغيير الألوان
+   يُضاف بعد style.css في index.html
+   ============================================================ */
+
+/* ============================================================
+   1. شكل الأيقونة — صندوق مستدير مع ظل
+      بدون تغيير اللون، اللون يجي من الكلاسات الأصلية
+   ============================================================ */
+.stat-icon {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.4rem !important;
+    flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+.stat-card:hover .stat-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* أيقونات stats-group-icon */
+.stats-group-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1rem !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* أيقونة stat-card-v2 */
+.stat-card-v2-icon {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.3rem !important;
+    flex-shrink: 0;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.stat-card-v2:hover .stat-card-v2-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* ============================================================
+   2. شكل الكروت — حواف مستديرة أكثر + ظل أجمل
+      بدون تغيير الألوان
+   ============================================================ */
+.stat-card {
+    border-radius: 20px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07) !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12) !important;
+}
+
+.stat-card-v2 {
+    border-radius: 22px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07) !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    overflow: hidden;
+}
+.stat-card-v2:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12) !important;
+}
+
+.card {
+    border-radius: 20px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.07) !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    overflow: hidden;
+}
+
+/* ============================================================
+   3. شكل الأزرار — حواف أكثر استدارة + حركة hover
+      بدون تغيير اللون الأصلي
+   ============================================================ */
+.btn-primary {
+    border-radius: 12px !important;
+    font-family: 'Cairo', sans-serif !important;
+    font-weight: 700 !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+.btn-primary:hover {
+    transform: translateY(-2px) !important;
+    filter: brightness(1.08) !important;
+}
+.btn-primary i {
+    transition: transform 0.3s ease;
+}
+.btn-primary:hover i {
+    transform: scale(1.15);
+}
+
+/* ============================================================
+   4. شكل حقول الإدخال — نفس ستايل دورة التوزيع
+      بدون تغيير ألوان البوردر الأصلية
+   ============================================================ */
+.office-input {
+    border-radius: 12px !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    font-family: 'Cairo', sans-serif !important;
+}
+.office-input:focus {
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.1) !important;
+    outline: none !important;
+}
+
+/* ============================================================
+   5. شكل رأس الجدول — بدون تغيير اللون الأصلي
+      بس نحسّن الشكل العام
+   ============================================================ */
+.data-table th {
+    font-size: 0.88rem !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+.data-table tr {
+    transition: background 0.2s ease;
+}
+
+/* ============================================================
+   6. شكل المودال — حواف أكثر استدارة + ظل أعمق
+   ============================================================ */
+.modal-card {
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.2) !important;
+    animation: dc-slide-up 0.4s cubic-bezier(0.25,1,0.5,1) both !important;
+}
+
+/* ============================================================
+   7. شكل Sidebar — تحسين الـ hover والـ active
+      بدون تغيير الألوان
+   ============================================================ */
+.sidebar-nav li {
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+.sidebar-nav li i {
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+.sidebar-nav li:hover i {
+    transform: scale(1.2) rotate(8deg) !important;
+}
+.sidebar-nav li.active {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2) !important;
+}
+
+/* ============================================================
+   8. شكل البادجات — نفس الشكل المستدير
+   ============================================================ */
+.status-badge,
+[style*="border-radius: 20px"],
+[style*="border-radius:20px"] {
+    font-family: 'Cairo', sans-serif !important;
+    font-weight: 700 !important;
+}
+
+/* ============================================================
+   9. Progress Bar — نفس الشكل
+   ============================================================ */
+.cycle-progress-bar,
+.cycle-progress-fill {
+    border-radius: 4px !important;
+    transition: width 0.8s ease !important;
+}
+
+/* ============================================================
+   10. Hover على صفوف الجدول — نفس الـ highlight
+   ============================================================ */
+.data-table tr:hover td {
+    background: rgba(99,102,241,0.03) !important;
+}
+.main-case-row:hover {
+    background: rgba(99,102,241,0.04) !important;
+}
+
+/* ============================================================
+   11. Keyframes للـ animations
+   ============================================================ */
+@keyframes dc-slide-up {
+    from { transform: translateY(20px) scale(0.98); opacity: 0; }
+    to   { transform: translateY(0) scale(1);       opacity: 1; }
+}
+@keyframes dc-icon-bounce {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.1) rotate(5deg); }
+}
+
+/* ============================================================
+   12. Ribbon buttons — شكل أفضل بدون تغيير لون
+   ============================================================ */
+.ribbon-group button {
+    border-radius: 12px !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    font-family: 'Cairo', sans-serif !important;
+}
+.ribbon-group button:hover {
+    transform: translateY(-2px) !important;
+}
+
+/* ============================================================
+   13. Icon Btn (أيقونات الهيدر الدائرية)
+   ============================================================ */
+.icon-btn {
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+}
+.icon-btn:hover {
+    transform: rotate(15deg) scale(1.1) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15) !important;
+}
+
+/* ============================================================
+   14. Distribution Cycle Card — تحسين الشكل
+   ============================================================ */
+.distribution-cycle-card {
+    border-radius: 20px !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    overflow: hidden;
+}
+.distribution-cycle-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12) !important;
+}

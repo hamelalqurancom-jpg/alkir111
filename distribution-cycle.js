@@ -652,23 +652,125 @@ window.openWarehouseManager = function (cycleId, warehouseId) {
         <div style="display: grid; grid-template-columns: 1fr 380px; gap: 18px;">
             <!-- LEFT: Beneficiaries Table -->
             <div>
-                <!-- Add Beneficiaries Panel -->
+                <!-- Add Beneficiaries Panel - Multi-Method -->
                 <div style="background: var(--card-bg, white); border-radius: 18px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 16px;">
                     <h4 style="font-size: 1rem; font-weight: 800; color: var(--text-main, #1e293b); margin-bottom: 14px;">
                         <i class="fas fa-user-plus" style="color: #6366f1; margin-left: 6px;"></i> إضافة مستفيدين
                     </h4>
-                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                        <div style="position: relative; flex: 1;">
+
+                    <!-- Method Tabs -->
+                    <div style="display: flex; gap: 6px; margin-bottom: 16px; background: #f1f5f9; border-radius: 12px; padding: 4px;">
+                        <button id="wh-tab-search" onclick="window.switchAddTab('search', ${cycleId}, '${warehouseId}')"
+                            style="flex:1; padding: 8px 10px; border: none; border-radius: 9px; cursor: pointer; font-family:'Cairo',sans-serif; font-size:0.8rem; font-weight:700; background:#6366f1; color:white; transition:all 0.2s;">
+                            <i class="fas fa-search"></i> بحث بالاسم
+                        </button>
+                        <button id="wh-tab-range" onclick="window.switchAddTab('range', ${cycleId}, '${warehouseId}')"
+                            style="flex:1; padding: 8px 10px; border: none; border-radius: 9px; cursor: pointer; font-family:'Cairo',sans-serif; font-size:0.8rem; font-weight:700; background:transparent; color:#64748b; transition:all 0.2s;">
+                            <i class="fas fa-list-ol"></i> نطاق رقمي
+                        </button>
+                        <button id="wh-tab-table" onclick="window.switchAddTab('table', ${cycleId}, '${warehouseId}')"
+                            style="flex:1; padding: 8px 10px; border: none; border-radius: 9px; cursor: pointer; font-family:'Cairo',sans-serif; font-size:0.8rem; font-weight:700; background:transparent; color:#64748b; transition:all 0.2s;">
+                            <i class="fas fa-table"></i> جدول الاختيار
+                        </button>
+                        <button id="wh-tab-all" onclick="window.switchAddTab('all', ${cycleId}, '${warehouseId}')"
+                            style="flex:1; padding: 8px 10px; border: none; border-radius: 9px; cursor: pointer; font-family:'Cairo',sans-serif; font-size:0.8rem; font-weight:700; background:transparent; color:#64748b; transition:all 0.2s;">
+                            <i class="fas fa-users"></i> الكل
+                        </button>
+                    </div>
+
+                    <!-- Tab: Search by Name -->
+                    <div id="wh-panel-search">
+                        <div style="position: relative;">
                             <i class="fas fa-search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
-                            <input type="text" id="wh-beneficiary-search" class="office-input" placeholder="ابحث بالاسم أو الهاتف أو رقم البحث..." 
+                            <input type="text" id="wh-beneficiary-search" class="office-input" placeholder="ابحث بالاسم أو الهاتف أو رقم البحث..."
                                    style="padding-right: 38px;"
                                    oninput="window.searchBeneficiaryForWarehouse(this.value, ${cycleId}, '${warehouseId}')">
                         </div>
-                        <button class="btn-primary" style="padding: 10px 16px; white-space: nowrap; font-size: 0.85rem;" onclick="window.addAllCasesToWarehouse(${cycleId}, '${warehouseId}')">
-                            <i class="fas fa-users"></i> إضافة الكل
-                        </button>
+                        <div id="wh-search-results" style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; display: none; margin-top: 8px;"></div>
                     </div>
-                    <div id="wh-search-results" style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; display: none;"></div>
+
+                    <!-- Tab: Range Selection -->
+                    <div id="wh-panel-range" style="display:none;">
+                        <div style="background: #f8fafc; border-radius: 12px; padding: 14px;">
+                            <p style="font-size:0.82rem; color:#64748b; margin-bottom:12px;">
+                                <i class="fas fa-info-circle" style="color:#6366f1;"></i>
+                                اختر الحالات من رقم بحث معين لآخر (حسب الترتيب الرقمي)
+                            </p>
+                            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                                <div style="flex:1;">
+                                    <label style="font-size:0.8rem; font-weight:700; color:#374151; display:block; margin-bottom:5px;">من رقم</label>
+                                    <input type="number" id="wh-range-from" class="office-input" placeholder="1" min="1" style="font-size:0.9rem;">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:0.8rem; font-weight:700; color:#374151; display:block; margin-bottom:5px;">إلى رقم</label>
+                                    <input type="number" id="wh-range-to" class="office-input" placeholder="50" min="1" style="font-size:0.9rem;">
+                                </div>
+                                <button class="btn-primary" style="padding:10px 16px; white-space:nowrap; font-size:0.85rem;" onclick="window.previewRangeSelection(${cycleId}, '${warehouseId}')">
+                                    <i class="fas fa-eye"></i> معاينة
+                                </button>
+                            </div>
+                            <div id="wh-range-preview" style="margin-top:12px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Table Selection -->
+                    <div id="wh-panel-table" style="display:none;">
+                        <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <input type="text" id="wh-table-filter" class="office-input" placeholder="فلترة في الجدول..."
+                                   style="flex:1; font-size:0.85rem;"
+                                   oninput="window.filterBenefTable(this.value)">
+                            <button class="btn-primary" style="padding:8px 14px; font-size:0.82rem; white-space:nowrap; background:#6366f1;" onclick="window.selectAllInTable(${cycleId}, '${warehouseId}')">
+                                <i class="fas fa-check-double"></i> تحديد الكل
+                            </button>
+                            <button class="btn-primary" style="padding:8px 14px; font-size:0.82rem; white-space:nowrap; background:#10b981;" onclick="window.addCheckedFromTable(${cycleId}, '${warehouseId}')">
+                                <i class="fas fa-user-plus"></i> إضافة المحددين
+                            </button>
+                        </div>
+                        <div style="max-height: 260px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:12px;">
+                            <table style="width:100%; border-collapse:collapse; font-size:0.82rem;" id="wh-cases-table">
+                                <thead style="position:sticky;top:0;background:#f8fafc;z-index:1;">
+                                    <tr>
+                                        <th style="padding:8px 12px; width:36px;"><input type="checkbox" id="wh-check-all" onchange="window.toggleAllTableChecks(this)"></th>
+                                        <th style="padding:8px 12px; text-align:right; font-weight:700; color:#475569;">رقم البحث</th>
+                                        <th style="padding:8px 12px; text-align:right; font-weight:700; color:#475569;">الاسم</th>
+                                        <th style="padding:8px 12px; text-align:right; font-weight:700; color:#475569;">الهاتف</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="wh-cases-tbody">
+                                    ${(function() {
+                                        const existingIds = new Set((wh.beneficiaries || []).map(b => b.caseId));
+                                        return (appData.cases || []).filter(c => !c.hidden && !existingIds.has(c.id))
+                                            .map(c => `
+                                                <tr class="wh-case-row" data-name="${(c.name||'').toLowerCase()}" data-phone="${(c.phone||'').toLowerCase()}" data-num="${c.searchNumber||''}">
+                                                    <td style="padding:7px 12px; text-align:center;">
+                                                        <input type="checkbox" class="wh-case-check" data-case-id="${c.id}">
+                                                    </td>
+                                                    <td style="padding:7px 12px; color:#6366f1; font-weight:700;">${c.searchNumber || '-'}</td>
+                                                    <td style="padding:7px 12px; font-weight:700;">${c.name || ''}</td>
+                                                    <td style="padding:7px 12px; color:#64748b;">${c.phone || '-'}</td>
+                                                </tr>
+                                            `).join('') || '<tr><td colspan="4" style="text-align:center;padding:20px;color:#94a3b8;">لا توجد حالات متاحة</td></tr>';
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Add All -->
+                    <div id="wh-panel-all" style="display:none;">
+                        <div style="background: #fef3c7; border-radius: 12px; padding: 16px; text-align:center;">
+                            <i class="fas fa-users" style="font-size:2rem; color:#d97706; margin-bottom:10px; display:block;"></i>
+                            <p style="font-size:0.88rem; color:#92400e; margin-bottom:14px; font-weight:700;">
+                                سيتم إضافة جميع الحالات غير المضافة حتى الآن دفعةً واحدة
+                            </p>
+                            <p style="font-size:0.8rem; color:#b45309; margin-bottom:14px;">
+                                الحالات المتاحة: <strong>${(appData.cases || []).filter(c => !c.hidden && !(wh.beneficiaries||[]).some(b=>b.caseId===c.id)).length}</strong> حالة
+                            </p>
+                            <button class="btn-primary" style="padding:12px 28px; background:#d97706; font-size:0.9rem;" onclick="window.addAllCasesToWarehouse(${cycleId}, '${warehouseId}')">
+                                <i class="fas fa-users"></i> إضافة الجميع
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Beneficiaries Table -->
@@ -787,6 +889,168 @@ window.openWarehouseManager = function (cycleId, warehouseId) {
             </div>
         </div>
     `;
+};
+
+// ============================================================
+// BENEFICIARY MULTI-METHOD SELECTION
+// ============================================================
+
+window.switchAddTab = function (tab, cycleId, warehouseId) {
+    const tabs = ['search', 'range', 'table', 'all'];
+    tabs.forEach(t => {
+        const btn = document.getElementById('wh-tab-' + t);
+        const panel = document.getElementById('wh-panel-' + t);
+        if (btn) {
+            btn.style.background = t === tab ? '#6366f1' : 'transparent';
+            btn.style.color = t === tab ? 'white' : '#64748b';
+        }
+        if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    });
+};
+
+window.previewRangeSelection = function (cycleId, warehouseId) {
+    const from = parseInt(document.getElementById('wh-range-from')?.value);
+    const to = parseInt(document.getElementById('wh-range-to')?.value);
+    const preview = document.getElementById('wh-range-preview');
+    if (!preview) return;
+
+    if (!from || !to || from > to) {
+        preview.innerHTML = '<p style="color:#e11d48; font-size:0.82rem; margin-top:8px;">⚠️ يرجى إدخال نطاق رقمي صحيح (من ≤ إلى)</p>';
+        return;
+    }
+
+    const cycle = appData.distributionCycles.find(c => c.id === cycleId);
+    const wh = cycle?.warehouses.find(w => w.id === warehouseId);
+    const existingIds = new Set((wh?.beneficiaries || []).map(b => b.caseId));
+
+    const matched = (appData.cases || []).filter(c => {
+        const num = parseInt(c.searchNumber);
+        return !c.hidden && !existingIds.has(c.id) && !isNaN(num) && num >= from && num <= to;
+    }).sort((a, b) => parseInt(a.searchNumber) - parseInt(b.searchNumber));
+
+    if (matched.length === 0) {
+        preview.innerHTML = '<p style="color:#94a3b8; font-size:0.82rem; margin-top:8px; text-align:center;">لا توجد حالات في هذا النطاق</p>';
+        return;
+    }
+
+    preview.innerHTML = `
+        <div style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-top:10px;">
+            <div style="background:#f8fafc; padding:8px 14px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:0.82rem; font-weight:700; color:#374151;">
+                    <i class="fas fa-users" style="color:#6366f1;"></i> ${matched.length} حالة في هذا النطاق
+                </span>
+                <button class="btn-primary" style="padding:6px 14px; font-size:0.78rem; background:#6366f1;"
+                        onclick="window.addRangeToWarehouse(${cycleId}, '${warehouseId}', ${from}, ${to})">
+                    <i class="fas fa-user-plus"></i> إضافة الكل (${matched.length})
+                </button>
+            </div>
+            <div style="max-height:150px; overflow-y:auto;">
+                ${matched.map(c => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 14px; border-bottom:1px solid #f8fafc; font-size:0.82rem;">
+                        <span style="font-weight:700; color:#1e293b;">${c.name}</span>
+                        <span style="color:#6366f1; font-weight:700;">#${c.searchNumber}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+};
+
+window.addRangeToWarehouse = function (cycleId, warehouseId, from, to) {
+    const cycle = appData.distributionCycles.find(c => c.id === cycleId);
+    const wh = cycle?.warehouses.find(w => w.id === warehouseId);
+    if (!wh) return;
+
+    const existingIds = new Set((wh.beneficiaries || []).map(b => b.caseId));
+    const matched = (appData.cases || []).filter(c => {
+        const num = parseInt(c.searchNumber);
+        return !c.hidden && !existingIds.has(c.id) && !isNaN(num) && num >= from && num <= to;
+    });
+
+    let added = 0;
+    matched.forEach(caseObj => {
+        const defaultItems = (wh.items || []).map(item => ({
+            name: item.name,
+            qty: Math.floor(item.totalQuantity / Math.max((wh.beneficiaries.length + 1), 1))
+        }));
+        wh.beneficiaries.push({
+            caseId: caseObj.id,
+            name: caseObj.name,
+            phone: caseObj.phone || '',
+            deliveryStatus: 'waiting',
+            items: defaultItems,
+            financialAmount: 0,
+            deliveredAt: null,
+            deliveredBy: null
+        });
+        added++;
+    });
+
+    saveData();
+    alert(`✅ تم إضافة ${added} حالة بنجاح`);
+    window.openWarehouseManager(cycleId, warehouseId);
+};
+
+window.filterBenefTable = function (query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll('.wh-case-row').forEach(row => {
+        const name = row.dataset.name || '';
+        const phone = row.dataset.phone || '';
+        const num = row.dataset.num || '';
+        row.style.display = (!q || name.includes(q) || phone.includes(q) || num.includes(q)) ? '' : 'none';
+    });
+};
+
+window.toggleAllTableChecks = function (masterCheckbox) {
+    document.querySelectorAll('.wh-case-check').forEach(cb => {
+        const row = cb.closest('tr');
+        if (row && row.style.display !== 'none') cb.checked = masterCheckbox.checked;
+    });
+};
+
+window.selectAllInTable = function (cycleId, warehouseId) {
+    document.querySelectorAll('.wh-case-check').forEach(cb => {
+        const row = cb.closest('tr');
+        if (row && row.style.display !== 'none') cb.checked = true;
+    });
+    const masterCb = document.getElementById('wh-check-all');
+    if (masterCb) masterCb.checked = true;
+};
+
+window.addCheckedFromTable = function (cycleId, warehouseId) {
+    const checked = document.querySelectorAll('.wh-case-check:checked');
+    if (checked.length === 0) { alert('يرجى تحديد حالة واحدة على الأقل'); return; }
+
+    const cycle = appData.distributionCycles.find(c => c.id === cycleId);
+    const wh = cycle?.warehouses.find(w => w.id === warehouseId);
+    if (!wh) return;
+
+    let added = 0;
+    checked.forEach(cb => {
+        const caseId = parseInt(cb.dataset.caseId);
+        if (wh.beneficiaries.some(b => b.caseId === caseId)) return;
+        const caseObj = (appData.cases || []).find(c => c.id === caseId);
+        if (!caseObj) return;
+        const defaultItems = (wh.items || []).map(item => ({
+            name: item.name,
+            qty: Math.floor(item.totalQuantity / Math.max((wh.beneficiaries.length + 1), 1))
+        }));
+        wh.beneficiaries.push({
+            caseId: caseObj.id,
+            name: caseObj.name,
+            phone: caseObj.phone || '',
+            deliveryStatus: 'waiting',
+            items: defaultItems,
+            financialAmount: 0,
+            deliveredAt: null,
+            deliveredBy: null
+        });
+        added++;
+    });
+
+    saveData();
+    alert(`✅ تم إضافة ${added} حالة بنجاح`);
+    window.openWarehouseManager(cycleId, warehouseId);
 };
 
 // ============================================================
